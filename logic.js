@@ -65,19 +65,22 @@ confirmBtn.addEventListener('click', async () => {
 // 发送RUN信号到display端和ESP32
 async function sendRunSignal() {
     try {
-        // 通过Supabase Realtime广播
-        const channel = supabase.channel('display-trigger');
+        // 插入新记录到数据库（触发Realtime和ESP32轮询）
+        const { data, error } = await supabase
+            .from('run_signals')
+            .insert([
+                {
+                    message: userMessage,
+                    processed: false
+                }
+            ])
+            .select();
         
-        await channel.send({
-            type: 'broadcast',
-            event: 'run',
-            payload: {
-                message: userMessage,
-                timestamp: new Date().toISOString()
-            }
-        });
-        
-        console.log('Run signal sent successfully');
+        if (error) {
+            console.error('Failed to insert run signal:', error);
+        } else {
+            console.log('Run signal sent successfully:', data);
+        }
     } catch (error) {
         console.error('Failed to send run signal:', error);
     }
