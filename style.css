@@ -1,0 +1,324 @@
+/* ===================================
+   SMILE PLEASE - 极简黑白主义样式表
+   Minimalism + Glitch Art
+   =================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.container {
+    width: 100%;
+    max-width: 800px;
+    padding: 40px;
+    text-align: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ===================================
+   终端式输入界面
+   =================================== */
+.input-title {
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    margin-bottom: 40px;
+    font-weight: normal;
+    text-align: center;
+    animation: blink 1.5s infinite;
+}
+
+.terminal-prompt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto 50px;
+    padding: 20px;
+    border: 2px solid #fff;
+    background: transparent;
+}
+
+.prompt-symbol {
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    white-space: nowrap;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+.terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 1.2rem;
+    letter-spacing: 1px;
+    outline: none;
+    padding: 0;
+}
+
+.terminal-input::placeholder {
+    color: #444;
+}
+
+/* ===================================
+   Glitch按钮样式
+   =================================== */
+.glitch-button {
+    width: 100%;
+    max-width: 500px;
+    background: #fff;
+    color: #000;
+    border: 3px solid #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: 25px;
+    cursor: pointer;
+    letter-spacing: 5px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.glitch-button:hover {
+    background: #000;
+    color: #fff;
+    animation: glitchBtn 0.3s infinite;
+}
+
+.glitch-button:active {
+    transform: scale(0.98);
+}
+
+@keyframes glitchBtn {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(2px, -2px); }
+    60% { transform: translate(-2px, -2px); }
+    80% { transform: translate(2px, 2px); }
+    100% { transform: translate(0); }
+}
+
+/* ===================================
+   支付阶段样式
+   =================================== */
+.payment-info {
+    margin-bottom: 50px;
+}
+
+.debt-amount {
+    font-size: 3rem;
+    margin-bottom: 40px;
+    letter-spacing: 6px;
+    font-weight: normal;
+}
+
+.qr-container {
+    margin: 40px auto;
+    padding: 30px;
+    border: 3px solid #fff;
+    max-width: 400px;
+}
+
+.qr-code {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.instruction {
+    font-size: 1rem;
+    letter-spacing: 2px;
+    margin-top: 30px;
+    opacity: 0.7;
+}
+
+/* ===================================
+   验证阶段 - 多层Glitch文字
+   =================================== */
+.glitch-text {
+    position: relative;
+    font-size: 2.5rem;
+    letter-spacing: 5px;
+    margin-bottom: 50px;
+}
+
+.glitch-layer {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+}
+
+.glitch-layer:nth-child(1) {
+    position: relative;
+    z-index: 1;
+}
+
+.glitch-layer:nth-child(2) {
+    color: #ff0000;
+    animation: glitch1 0.3s infinite;
+    z-index: 2;
+}
+
+.glitch-layer:nth-child(3) {
+    color: #00ff00;
+    animation: glitch2 0.4s infinite;
+    z-index: 3;
+}
+
+@keyframes glitch1 {
+    0% { transform: translate(-50%, 0); }
+    20% { transform: translate(calc(-50% - 3px), 2px); }
+    40% { transform: translate(calc(-50% + 3px), -2px); }
+    60% { transform: translate(calc(-50% - 2px), 3px); }
+    80% { transform: translate(calc(-50% + 2px), -3px); }
+    100% { transform: translate(-50%, 0); }
+}
+
+@keyframes glitch2 {
+    0% { transform: translate(-50%, 0); }
+    25% { transform: translate(calc(-50% + 2px), -2px); }
+    50% { transform: translate(calc(-50% - 2px), 2px); }
+    75% { transform: translate(calc(-50% + 3px), -3px); }
+    100% { transform: translate(-50%, 0); }
+}
+
+/* 加载进度条 */
+.loading-bar {
+    width: 100%;
+    max-width: 400px;
+    height: 4px;
+    background: #333;
+    margin: 50px auto;
+    overflow: hidden;
+}
+
+.loading-progress {
+    height: 100%;
+    background: #fff;
+    animation: loading 3s ease-in-out;
+}
+
+@keyframes loading {
+    0% { width: 0; }
+    100% { width: 100%; }
+}
+
+/* ===================================
+   成功阶段样式
+   =================================== */
+.success-message {
+    animation: fadeInScale 0.5s ease-out;
+}
+
+.success-message h1 {
+    font-size: 2.5rem;
+    margin-bottom: 40px;
+    font-weight: normal;
+}
+
+.terminal-label {
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+    margin: 30px 0;
+    opacity: 0.8;
+}
+
+.countdown {
+    font-size: 1rem;
+    letter-spacing: 2px;
+    margin-top: 40px;
+    opacity: 0.6;
+}
+
+#countdownNum {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ===================================
+   响应式设计
+   =================================== */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+    }
+    
+    .input-title {
+        font-size: 1.2rem;
+        letter-spacing: 2px;
+        margin-bottom: 30px;
+    }
+    
+    .terminal-prompt {
+        padding: 15px;
+        max-width: 100%;
+    }
+    
+    .prompt-symbol {
+        font-size: 1rem;
+    }
+    
+    .terminal-input {
+        font-size: 1rem;
+        width: 100%;
+    }
+    
+    .glitch-button {
+        font-size: 1.2rem;
+        padding: 20px;
+    }
+    
+    .debt-amount {
+        font-size: 2rem;
+    }
+    
+    .qr-container {
+        padding: 20px;
+    }
+    
+    .glitch-text {
+        font-size: 1.8rem;
+    }
+    
+    .success-message h1 {
+        font-size: 1.8rem;
+    }
+}

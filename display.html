@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DISPLAY TERMINAL_</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            overflow: hidden;
+        }
+        
+        #readyState {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #00ff00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        #activeDisplay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #activeDisplay.active {
+            display: flex;
+        }
+
+        .strobe {
+            animation: strobe 0.08s infinite;
+        }
+
+        @keyframes strobe {
+            0%, 49% { background: #000; color: #fff; }
+            50%, 100% { background: #fff; color: #000; }
+        }
+
+        .message-display {
+            font-size: 48px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-align: center;
+            padding: 40px;
+            max-width: 90%;
+            word-wrap: break-word;
+            animation: glitchScroll 0.5s infinite;
+        }
+
+        @keyframes glitchScroll {
+            0% { transform: translate(0, 0) skew(0deg); }
+            20% { transform: translate(-2px, 2px) skew(1deg); }
+            40% { transform: translate(2px, -2px) skew(-1deg); }
+            60% { transform: translate(-1px, 1px) skew(0.5deg); }
+            80% { transform: translate(1px, -1px) skew(-0.5deg); }
+            100% { transform: translate(0, 0) skew(0deg); }
+        }
+
+        .countdown-display {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 180px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="readyState">
+        > SYSTEM READY_
+    </div>
+
+    <div id="activeDisplay">
+        <div class="message-display" id="messageText"></div>
+        <div class="countdown-display" id="countdownText"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        // Supabase配置
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const readyState = document.getElementById('readyState');
+        const activeDisplay = document.getElementById('activeDisplay');
+        const messageText = document.getElementById('messageText');
+        const countdownText = document.getElementById('countdownText');
+
+        let isRunning = false;
+
+        // 订阅实时事件
+        const channel = supabase.channel('display-trigger')
+            .on('broadcast', { event: 'run' }, (payload) => {
+                if (!isRunning) {
+                    triggerDisplay(payload.message);
+                }
+            })
+            .subscribe();
+
+        function triggerDisplay(message) {
+            if (isRunning) return;
+            isRunning = true;
+
+            // 隐藏就绪状态
+            readyState.style.display = 'none';
+            
+            // 显示激活界面
+            activeDisplay.classList.add('active');
+            document.body.classList.add('strobe');
+            
+            // 设置消息
+            messageText.textContent = message || 'SMILE PLEASE';
+            
+            // 30秒倒计时
+            let timeLeft = 30;
+            countdownText.textContent = timeLeft;
+            
+            const countdownInterval = setInterval(() => {
+                timeLeft--;
+                countdownText.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    resetDisplay();
+                }
+            }, 1000);
+        }
+
+        function resetDisplay() {
+            // 停止闪烁
+            document.body.classList.remove('strobe');
+            
+            // 隐藏激活界面
+            activeDisplay.classList.remove('active');
+            
+            // 显示就绪状态
+            readyState.style.display = 'block';
+            
+            isRunning = false;
+        }
+
+        console.log('Display terminal ready. Listening for triggers...');
+    </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!-- Smile Please - Interactive Art Installation -->
+<!-- Deployed via Vercel -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMILE PLEASE_</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" id="inputPhase">
+        <h1 class="input-title">> ENTER YOUR MESSAGE_</h1>
+        <div class="terminal-prompt">
+            <input type="text" id="messageInput" class="terminal-input" maxlength="200" autofocus>
+        </div>
+        <button id="submitBtn" class="glitch-button">SUBMIT TO SYSTEM</button>
+    </div>
+
+    <div class="container hidden" id="paymentPhase">
+        <div class="payment-info">
+            <h1 class="debt-amount">DEBT: 0.50 CNY</h1>
+            <div class="qr-container">
+                <img src="收款码.jpg" alt="Payment QR Code" class="qr-code">
+            </div>
+            <p class="instruction">扫码支付后点击确认</p>
+        </div>
+        <button id="confirmBtn" class="glitch-button">CONFIRM PAYMENT</button>
+    </div>
+
+    <div class="container hidden" id="verifyingPhase">
+        <div class="glitch-text">
+            <div class="glitch-layer">SYSTEM VERIFYING</div>
+            <div class="glitch-layer">SYSTEM VERIFYING</div>
+            <div class="glitch-layer">SYSTEM VERIFYING</div>
+        </div>
+        <div class="loading-bar">
+            <div class="loading-progress"></div>
+        </div>
+    </div>
+
+    <div class="container hidden" id="successPhase">
+        <div class="success-message">
+            <h1 class="glitch-text">
+                <div class="glitch-layer">TRANSACTION COMPLETE</div>
+                <div class="glitch-layer">TRANSACTION COMPLETE</div>
+                <div class="glitch-layer">TRANSACTION COMPLETE</div>
+            </h1>
+            <p class="terminal-label">YOUR MESSAGE HAS BEEN TRANSMITTED_</p>
+            <p class="countdown">Display will activate in <span id="countdownNum">3</span>s</p>
+        </div>
+    </div>
+
+    <script type="module" src="logic.js"></script>
+</body>
+</html>
