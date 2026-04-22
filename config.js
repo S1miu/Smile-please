@@ -3,8 +3,8 @@
 // 获取方式：https://app.supabase.com -> 你的项目 -> Settings -> API
 
 export const SUPABASE_CONFIG = {
-    url: 'https://ghkzhbfqcwzkgrmxwoww.supabase.co',  // 例如: https://xxxxxxxxxxxxx.supabase.co
-    anonKey: 'sb_publishable_NSJeUhlK935dL5PC_XUSgQ_7KoVRDxQ'  // 以 eyJ 开头的长字符串
+    url: 'https://ghkzhbfqcwzkgrmxwoww.supabase.co',
+    anonKey: 'sb_publishable_NSJeUhlK935dL5PC_XUSgQ_7KoVRDxQ'
 };
 
 // 使用说明：

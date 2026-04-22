@@ -32,15 +32,15 @@ submitBtn.addEventListener('click', () => {
 
 // 确认支付按钮
 confirmBtn.addEventListener('click', async () => {
-    // 切换到验证页面
+    // 立即发送RUN信号（触发iPad和ESP32）
+    await sendRunSignal();
+    
+    // 切换到验证页面（播放Glitch动画）
     paymentPhase.classList.add('hidden');
     verifyingPhase.classList.remove('hidden');
     
-    // 3秒后发送RUN信号
-    setTimeout(async () => {
-        await sendRunSignal();
-        
-        // 显示成功页面
+    // 3秒后显示成功页面
+    setTimeout(() => {
         verifyingPhase.classList.add('hidden');
         successPhase.classList.remove('hidden');
         
