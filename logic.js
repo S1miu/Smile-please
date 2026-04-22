@@ -1,23 +1,18 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SUPABASE_CONFIG } from './config.js';
+import { SUPABASE_CONFIG, PAYMENT_CONFIG } from './config.js';
 
 const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
 
 // 获取DOM元素
 const inputPhase = document.getElementById('inputPhase');
-const paymentPhase = document.getElementById('paymentPhase');
-const verifyingPhase = document.getElementById('verifyingPhase');
 const successPhase = document.getElementById('successPhase');
-
 const messageInput = document.getElementById('messageInput');
 const submitBtn = document.getElementById('submitBtn');
-const confirmBtn = document.getElementById('confirmBtn');
-const countdownNum = document.getElementById('countdownNum');
 
 let userMessage = '';
 
 // 提交消息按钮
-submitBtn.addEventListener('click', () => {
+submitBtn.addEventListener('click', async () => {
     userMessage = messageInput.value.trim();
     
     if (!userMessage) {
@@ -25,38 +20,15 @@ submitBtn.addEventListener('click', () => {
         return;
     }
     
-    // 切换到支付页面
-    inputPhase.classList.add('hidden');
-    paymentPhase.classList.remove('hidden');
-});
-
-// 确认支付按钮
-confirmBtn.addEventListener('click', async () => {
-    // 立即发送RUN信号（触发iPad和ESP32）
+    // 禁用按钮防止重复点击
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'SUBMITTING...';
+    
+    // 发送RUN信号（触发iPad和ESP32）
     await sendRunSignal();
     
-    // 切换到验证页面（播放Glitch动画）
-    paymentPhase.classList.add('hidden');
-    verifyingPhase.classList.remove('hidden');
-    
-    // 3秒后显示成功页面
-    setTimeout(() => {
-        verifyingPhase.classList.add('hidden');
-        successPhase.classList.remove('hidden');
-        
-        // 倒计时后自动刷新
-        let count = 3;
-        const countdownInterval = setInterval(() => {
-            count--;
-            countdownNum.textContent = count;
-            
-            if (count <= 0) {
-                clearInterval(countdownInterval);
-                // 刷新页面
-                window.location.reload();
-            }
-        }, 1000);
-    }, 3000);
+    // 立即跳转到支付链接
+    window.location.href = PAYMENT_CONFIG.url;
 });
 
 // 发送RUN信号到display端和ESP32

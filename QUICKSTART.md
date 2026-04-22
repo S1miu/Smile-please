@@ -61,12 +61,12 @@ python3 -m http.server 8000
 ### 测试流程
 1. **浏览器1** - 打开 http://localhost:8000
    - 输入消息
-   - 点击提交
-   - 点击确认支付
+   - 点击 "SUBMIT TO SYSTEM"
+   - 看到 "MESSAGE TRANSMITTED" 确认页面
 
 2. **浏览器2** - 打开 http://localhost:8000/display.html
    - 应该看到 "SYSTEM READY_"
-   - 当支付确认后，应该立即触发显示
+   - 当消息提交后，应该立即触发30秒显示效果
 
 3. **检查控制台**
    - F12 打开开发者工具
@@ -99,10 +99,11 @@ python3 -m http.server 8000
 - 确认网络允许设备连接
 - 查看串口监视器的错误信息
 
-### 支付页面卡住？
+### 提交后没有反应？
 - 检查网络连接
 - 查看浏览器控制台错误
 - 确认 Supabase 配置正确
+- 确认 config.js 中的配置已正确填写
 
 ## 6. 生产环境建议
 

@@ -14,47 +14,35 @@
 
 ## 🎯 快速开始
 
-### 方案A：使用 Supabase（推荐新手）
+详细配置请查看 [QUICKSTART.md](QUICKSTART.md)
+
+### 核心配置（3步完成）
 
 #### 1. 创建 Supabase 项目
 
 1. 访问 [supabase.com](https://supabase.com) 并注册
-2. 创建新项目
-3. 在 SQL Editor 中执行以下 SQL：
+2. 创建新项目，在 SQL Editor 中执行：
 
 ```sql
--- 创建系统命令表
-CREATE TABLE system_commands (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  command TEXT NOT NULL,
-  message TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE run_signals (
+  id BIGSERIAL PRIMARY KEY,
+  message TEXT NOT NULL,
+  processed BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 启用实时功能
-ALTER PUBLICATION supabase_realtime ADD TABLE system_commands;
-
--- 设置行级安全策略（允许所有人读写，仅用于演示）
-ALTER TABLE system_commands ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Enable read access for all users" ON system_commands
-  FOR SELECT USING (true);
-
-CREATE POLICY "Enable insert access for all users" ON system_commands
-  FOR INSERT WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE run_signals;
 ```
 
-4. 获取你的项目凭据：
-   - 项目设置 → API → Project URL
-   - 项目设置 → API → anon public key
+3. 获取凭据：Settings > API 中复制 Project URL 和 Anon public key
 
-#### 2. 配置项目文件
+#### 2. 配置文件
 
-编辑 `index.html`、`payment.html` 和 `display.html`，找到配置区域并填入：
+编辑 `config.js`：
 
 ```javascript
 const SUPABASE_URL = 'https://你的项目ID.supabase.co';
-const SUPABASE_ANON_KEY = '你的anon key';
+const SUPABASE_ANON_KEY = '你的anon-key';
 ```
 
 #### 3. 运行项目
@@ -72,8 +60,7 @@ npx http-server -p 8000
 ```
 
 **访问地址：**
-- 观众端：http://localhost:8000/index.html
-- 支付端：http://localhost:8000/payment.html
+- 观众端：http://localhost:8000
 - iPad展示端：http://localhost:8000/display.html
 
 ---
@@ -199,30 +186,22 @@ ESP32-S3 引脚连接：
 
 ### 完整体验流程：
 
-1. **观众端（手机/电脑）**
+1. **观众输入**
    - 打开 `index.html`
    - 输入消息（例如："HELLO WORLD"）
    - 点击 "SUBMIT TO SYSTEM"
+   - 看到 "MESSAGE TRANSMITTED" 确认
 
-2. **支付页**
-   - 自动跳转到 `payment.html`
-   - 显示收款码（0.50元）
-   - 点击 "CONFIRM PAYMENT" 确认
-
-3. **验证动画**
-   - 显示 3 秒 Glitch 验证动画
-   - 自动跳转到成功页面
-
-4. **iPad 展示**
-   - `display.html` 检测到 RUN 指令
-   - 立即触发：
+2. **iPad 展示**
+   - `display.html` 检测到新消息
+   - 立即触发 30 秒视觉效果：
      - ⚡ 黑白闪烁（Strobe Effect）
      - 📜 消息滚动（Glitch 像素风）
-     - ⏱️ 30秒倒计时
+     - ⏱️ 实时倒计时
    - 自动恢复静默状态
 
-5. **硬件响应**
-   - ESP32 检测到 RUN 指令
+3. **硬件响应**
+   - ESP32 检测到新消息
    - 向 GPIO 12/14 发送 30 秒脉冲
    - 步进电机开始运转
    - 30秒后自动停止
@@ -318,13 +297,6 @@ setInterval(checkStatus, 1000); // 改为你想要的间隔（毫秒）
 const int POLL_INTERVAL = 1000; // 改为你想要的间隔（毫秒）
 ```
 
-### 修改支付金额
-
-**编辑 payment.html：**
-```html
-<div class="debt-label">DEBT: 1.00 CNY</div>
-<!-- 改为你想要的金额 -->
-```
 
 ---
 
@@ -350,11 +322,6 @@ const int POLL_INTERVAL = 1000; // 改为你想要的间隔（毫秒）
 3. 使用串口监视器查看是否收到 RUN 指令
 4. 调整 `generatePulse()` 函数中的脉冲宽度
 
-### Q4: 支付页收款码不显示？
-**A:**
-1. 确认 `收款码.jpg` 文件在正确位置
-2. 检查文件路径是否正确
-3. 尝试使用相对路径：`./收款码.jpg`
 
 ---
 
@@ -362,14 +329,16 @@ const int POLL_INTERVAL = 1000; // 改为你想要的间隔（毫秒）
 
 ```
 smile-please/
-├── index.html           # 观众入口页
-├── payment.html         # 支付模拟页
-├── display.html         # iPad展示页
-├── style.css            # 统一样式表
-├── esp32_control.ino    # ESP32控制代码
-├── 收款码.jpg           # 收款二维码
-├── README.md            # 本文档
-└── server.js           # (可选) 本地服务器
+├── index.html              # 观众入口页
+├── display.html            # iPad展示页
+├── logic.js                # 核心逻辑
+├── config.js               # Supabase配置
+├── style.css               # 统一样式表
+├── esp32_motor_control.ino # ESP32控制代码
+├── README.md               # 本文档
+├── QUICKSTART.md           # 快速开始指南
+├── SETUP.md                # 详细设置说明
+└── DEPLOYMENT.md           # 部署指南
 ```
 
 ---
@@ -377,13 +346,13 @@ smile-please/
 ## 🎬 演出前检查清单
 
 - [ ] 所有设备连接同一WiFi
-- [ ] Supabase/服务器正常运行
+- [ ] Supabase 配置正确并正常运行
 - [ ] iPad 全屏模式设置完成
 - [ ] iPad 已关闭自动锁屏
 - [ ] ESP32 已上传代码并启动
 - [ ] 电机硬件连接正常
-- [ ] 收款码图片正常显示
 - [ ] 测试完整流程至少一次
+- [ ] 浏览器控制台无错误信息
 
 ---
 

@@ -3,8 +3,13 @@
 // 获取方式：https://app.supabase.com -> 你的项目 -> Settings -> API
 
 export const SUPABASE_CONFIG = {
-    url: 'https://ghkzhbfqcwzkgrmxwoww.supabase.co',
-    anonKey: 'sb_publishable_NSJeUhlK935dL5PC_XUSgQ_7KoVRDxQ'
+    url: 'YOUR_SUPABASE_URL',           // 替换为你的 Supabase Project URL
+    anonKey: 'YOUR_SUPABASE_ANON_KEY'   // 替换为你的 Anon/Public Key
+};
+
+// 支付链接配置
+export const PAYMENT_CONFIG = {
+    url: 'YOUR_PAYMENT_URL'  // 替换为你的支付链接（如微信/支付宝收款页面）
 };
 
 // 使用说明：
