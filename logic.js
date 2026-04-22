@@ -25,10 +25,16 @@ submitBtn.addEventListener('click', async () => {
     submitBtn.textContent = 'SUBMITTING...';
     
     // 发送RUN信号（触发iPad和ESP32）
-    await sendRunSignal();
+    const success = await sendRunSignal();
     
-    // 立即跳转到支付链接
-    window.location.href = PAYMENT_CONFIG.url;
+    // 确保数据成功写入后再跳转
+    if (success) {
+        window.location.href = PAYMENT_CONFIG.url;
+    } else {
+        alert('消息发送失败，请重试');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'SUBMIT TO SYSTEM';
+    }
 });
 
 // 发送RUN信号到display端和ESP32
@@ -47,11 +53,14 @@ async function sendRunSignal() {
         
         if (error) {
             console.error('Failed to insert run signal:', error);
+            return false;
         } else {
             console.log('Run signal sent successfully:', data);
+            return true;
         }
     } catch (error) {
         console.error('Failed to send run signal:', error);
+        return false;
     }
 }
 

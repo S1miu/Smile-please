@@ -51,6 +51,10 @@
         }
 
         .message-display {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
             font-size: 48px;
             font-family: 'Courier New', monospace;
             font-weight: bold;
@@ -59,6 +63,7 @@
             max-width: 90%;
             word-wrap: break-word;
             animation: glitchScroll 0.5s infinite;
+            z-index: 101;
         }
 
         @keyframes glitchScroll {
@@ -72,9 +77,9 @@
 
         .countdown-display {
             position: fixed;
-            top: 50%;
+            bottom: 15%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateX(-50%);
             font-size: 180px;
             font-family: 'Courier New', monospace;
             font-weight: bold;
