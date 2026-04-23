@@ -27,14 +27,10 @@ submitBtn.addEventListener('click', async () => {
     // 发送RUN信号（触发iPad和ESP32）
     const success = await sendRunSignal();
     
-    // 确保数据成功写入后再跳转
-    if (success) {
-        window.location.href = PAYMENT_CONFIG.url;
-    } else {
-        alert('消息发送失败，请重试');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'SUBMIT TO SYSTEM';
-    }
+    // 无论成功与否，1.5秒后强制跳转到支付页面
+    setTimeout(() => {
+        window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
+    }, 1500);
 });
 
 // 发送RUN信号到display端和ESP32
