@@ -13,13 +13,13 @@
 #include <ArduinoJson.h>
 
 // ========== WiFi 配置 ==========
-const char* ssid = "YOUR_WIFI_SSID";           // 修改为你的WiFi名称
-const char* password = "YOUR_WIFI_PASSWORD";   // 修改为你的WiFi密码
+const char* ssid = "smileplease";           // 修改为你的WiFi名称
+const char* password = "simiaobieku";   // 修改为你的WiFi密码
 
 // ========== API 配置 ==========
 // 选项1：使用 Supabase
-const char* apiUrl = "YOUR_SUPABASE_URL/rest/v1/system_commands?select=*&order=created_at.desc&limit=1";
-const char* apiKey = "YOUR_SUPABASE_ANON_KEY";
+const char* apiUrl = "https://ghkzhbfqcwzkgrmxwoww.supabase.co";
+const char* apiKey = "sb_publishable_NSJeUhlK935dL5PC_XUSgQ_7KoVRDxQ";
 
 // 选项2：或使用自定义API端点
 // const char* apiUrl = "http://YOUR_SERVER_IP:PORT/api/status";

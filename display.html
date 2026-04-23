@@ -3,173 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DISPLAY TERMINAL_</title>
-    <link rel="stylesheet" href="style.css">
+    <title>SMILE PLEASE - DISPLAY</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            overflow: hidden;
-        }
-        
-        #readyState {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
+            background: #000;
+            color: #fff;
             font-family: 'Courier New', monospace;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 待机状态 */
+        .ready-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
             font-size: 12px;
-            color: #00ff00;
-            animation: blink 1s infinite;
+            letter-spacing: 2px;
+            opacity: 0.5;
+            animation: readyBlink 2s infinite;
         }
 
-        @keyframes blink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
+        @keyframes readyBlink {
+            0%, 50% { opacity: 0.5; }
+            51%, 100% { opacity: 0; }
         }
 
-        #activeDisplay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        /* 运行状态容器 */
+        .display-container {
             display: none;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .display-container.active {
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
         }
 
-        #activeDisplay.active {
-            display: flex;
-        }
-
+        /* 闪烁效果 */
         .strobe {
-            animation: strobe 0.08s infinite;
+            animation: strobeEffect 0.1s infinite;
         }
 
-        @keyframes strobe {
+        @keyframes strobeEffect {
             0%, 49% { background: #000; color: #fff; }
             50%, 100% { background: #fff; color: #000; }
         }
 
+        /* 文字显示区域 */
         .message-display {
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 48px;
-            font-family: 'Courier New', monospace;
+            width: 100%;
+            height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
             font-weight: bold;
+            letter-spacing: 10px;
             text-align: center;
-            padding: 40px;
-            max-width: 90%;
-            word-wrap: break-word;
-            animation: glitchScroll 0.5s infinite;
-            z-index: 101;
+            padding: 0 50px;
+            overflow: hidden;
+            position: relative;
         }
 
-        @keyframes glitchScroll {
-            0% { transform: translate(0, 0) skew(0deg); }
-            20% { transform: translate(-2px, 2px) skew(1deg); }
-            40% { transform: translate(2px, -2px) skew(-1deg); }
-            60% { transform: translate(-1px, 1px) skew(0.5deg); }
-            80% { transform: translate(1px, -1px) skew(-0.5deg); }
-            100% { transform: translate(0, 0) skew(0deg); }
+        /* 固定显示（≤5字） */
+        .message-static {
+            white-space: nowrap;
         }
 
-        .countdown-display {
-            position: fixed;
-            bottom: 15%;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 180px;
-            font-family: 'Courier New', monospace;
+        /* 滚动显示（>5字） */
+        .message-scroll {
+            position: absolute;
+            white-space: nowrap;
+            left: 100%;
+        }
+
+        /* 倒计时 */
+        .countdown {
+            font-size: 120px;
             font-weight: bold;
-            z-index: 100;
+            letter-spacing: 20px;
+            margin-top: 50px;
+            font-variant-numeric: tabular-nums;
         }
     </style>
 </head>
 <body>
-    <div id="readyState">
-        > SYSTEM READY_
+    <!-- 待机状态 -->
+    <div class="ready-indicator" id="readyIndicator">SYSTEM READY_</div>
+
+    <!-- 运行状态 -->
+    <div class="display-container" id="displayContainer">
+        <div class="message-display" id="messageDisplay"></div>
+        <div class="countdown" id="countdown">30</div>
     </div>
 
-    <div id="activeDisplay">
-        <div class="message-display" id="messageText"></div>
-        <div class="countdown-display" id="countdownText"></div>
-    </div>
-
-    <script type="module">
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-        import { SUPABASE_CONFIG } from './config.js';
-        
-        const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-
-        const readyState = document.getElementById('readyState');
-        const activeDisplay = document.getElementById('activeDisplay');
-        const messageText = document.getElementById('messageText');
-        const countdownText = document.getElementById('countdownText');
+    <script src="config.js"></script>
+    <script>
+        const readyIndicator = document.getElementById('readyIndicator');
+        const displayContainer = document.getElementById('displayContainer');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const countdownEl = document.getElementById('countdown');
 
         let isRunning = false;
+        let currentTimeout = null;
+        let scrollInterval = null;
 
-        // 订阅数据库变化
-        const channel = supabase.channel('run_signals_changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'run_signals'
-                },
-                (payload) => {
-                    if (!isRunning && payload.new && !payload.new.processed) {
-                        triggerDisplay(payload.new.message);
+        // 连接Supabase Realtime
+        function connectToSupabase() {
+            const ws = new WebSocket(
+                SUPABASE_URL.replace('https://', 'wss://').replace('http://', 'ws://') + 
+                '/realtime/v1/websocket?apikey=' + SUPABASE_ANON_KEY + 
+                '&vsn=1.0.0'
+            );
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                
+                // 订阅messages表的变化
+                ws.send(JSON.stringify({
+                    topic: 'realtime:public:messages',
+                    event: 'phx_join',
+                    payload: {},
+                    ref: '1'
+                }));
+
+                // 发送心跳
+                setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            topic: 'phoenix',
+                            event: 'heartbeat',
+                            payload: {},
+                            ref: Date.now().toString()
+                        }));
+                    }
+                }, 30000);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.event === 'INSERT' && data.payload && data.payload.record) {
+                    const record = data.payload.record;
+                    if (record.status === 'RUN' && !isRunning) {
+                        triggerDisplay(record.content);
                     }
                 }
-            )
-            .subscribe();
+            };
 
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                setTimeout(connectToSupabase, 3000);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket closed, reconnecting...');
+                setTimeout(connectToSupabase, 3000);
+            };
+        }
+
+        // 触发显示效果
         function triggerDisplay(message) {
             if (isRunning) return;
             isRunning = true;
 
-            // 隐藏就绪状态
-            readyState.style.display = 'none';
+            // 清除之前的定时器
+            if (currentTimeout) clearTimeout(currentTimeout);
+            if (scrollInterval) clearInterval(scrollInterval);
+
+            // 隐藏待机指示器
+            readyIndicator.style.display = 'none';
             
-            // 显示激活界面
-            activeDisplay.classList.add('active');
+            // 显示运行容器
+            displayContainer.classList.add('active');
+            
+            // 启动闪烁效果
             document.body.classList.add('strobe');
-            
-            // 设置消息
-            messageText.textContent = message || 'SMILE PLEASE';
-            
-            // 30秒倒计时
+
+            // 判断文字长度
+            const messageLength = message.length;
+            messageDisplay.innerHTML = '';
+
+            if (messageLength <= 5) {
+                // ≤5字：固定居中显示
+                const staticDiv = document.createElement('div');
+                staticDiv.className = 'message-static';
+                staticDiv.textContent = message;
+                messageDisplay.appendChild(staticDiv);
+            } else {
+                // >5字：滚动显示（每秒3字符）
+                const scrollDiv = document.createElement('div');
+                scrollDiv.className = 'message-scroll';
+                scrollDiv.textContent = message;
+                messageDisplay.appendChild(scrollDiv);
+
+                // 计算滚动参数
+                const displayWidth = messageDisplay.offsetWidth;
+                const messageWidth = scrollDiv.offsetWidth;
+                const totalDistance = displayWidth + messageWidth;
+                
+                // 每秒3字符，每个字符按80px字号估算约60px宽
+                const pixelsPerChar = 60;
+                const charsPerSecond = 3;
+                const pixelsPerSecond = charsPerSecond * pixelsPerChar;
+                const duration = totalDistance / pixelsPerSecond;
+
+                let position = displayWidth;
+                const updateInterval = 50; // 50ms更新一次
+                const pixelsPerUpdate = (pixelsPerSecond / 1000) * updateInterval;
+
+                scrollInterval = setInterval(() => {
+                    position -= pixelsPerUpdate;
+                    scrollDiv.style.left = position + 'px';
+
+                    // 滚动完成后重新开始
+                    if (position < -messageWidth) {
+                        position = displayWidth;
+                    }
+                }, updateInterval);
+            }
+
+            // 倒计时
             let timeLeft = 30;
-            countdownText.textContent = timeLeft;
-            
+            countdownEl.textContent = timeLeft;
+
             const countdownInterval = setInterval(() => {
                 timeLeft--;
-                countdownText.textContent = timeLeft;
-                
+                countdownEl.textContent = timeLeft;
+
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
                     resetDisplay();
                 }
             }, 1000);
+
+            // 30秒后自动重置
+            currentTimeout = setTimeout(() => {
+                resetDisplay();
+            }, 30000);
         }
 
+        // 重置显示
         function resetDisplay() {
+            isRunning = false;
+            
             // 停止闪烁
             document.body.classList.remove('strobe');
             
-            // 隐藏激活界面
-            activeDisplay.classList.remove('active');
+            // 清除滚动
+            if (scrollInterval) {
+                clearInterval(scrollInterval);
+                scrollInterval = null;
+            }
             
-            // 显示就绪状态
-            readyState.style.display = 'block';
+            // 隐藏运行容器
+            displayContainer.classList.remove('active');
+            messageDisplay.innerHTML = '';
             
-            isRunning = false;
+            // 显示待机指示器
+            readyIndicator.style.display = 'block';
         }
 
-        console.log('Display terminal ready. Listening for triggers...');
+        // 启动连接
+        connectToSupabase();
+
+        // 测试功能（开发时使用，可以在控制台调用）
+        window.testDisplay = (msg) => {
+            triggerDisplay(msg || '测试消息');
+        };
     </script>
 </body>
 </html>

@@ -1,33 +1,244 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<!-- Smile Please - Interactive Art Installation -->
-<!-- Deployed via Vercel - v1.0 -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMILE PLEASE_</title>
-    <link rel="stylesheet" href="style.css">
+    <title>SMILE PLEASE - SYSTEM ENTRY</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .prompt {
+            font-size: 18px;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+            opacity: 0.9;
+        }
+
+        .input-wrapper {
+            position: relative;
+            margin-bottom: 50px;
+        }
+
+        #messageInput {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #fff;
+            color: #fff;
+            font-size: 24px;
+            font-family: 'Courier New', monospace;
+            padding: 15px 5px;
+            outline: none;
+            letter-spacing: 1px;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-bottom-color: #fff;
+            animation: borderPulse 1.5s infinite;
+        }
+
+        @keyframes borderPulse {
+            0%, 100% { border-bottom-color: #fff; }
+            50% { border-bottom-color: #666; }
+        }
+
+        #messageInput::placeholder {
+            color: #666;
+            opacity: 1;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 24px;
+            background: #fff;
+            animation: blink 1s infinite;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        #submitBtn {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            background: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+            font-size: 20px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        #submitBtn:hover:not(:disabled) {
+            background: #fff;
+            color: #000;
+            transform: scale(1.02);
+        }
+
+        #submitBtn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: #333;
+            color: #333;
+        }
+
+        .status {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            letter-spacing: 2px;
+            min-height: 20px;
+        }
+
+        .error {
+            color: #ff3333;
+        }
+
+        .success {
+            color: #33ff33;
+        }
+
+        /* Processing animation */
+        .processing {
+            animation: glitch 0.3s infinite;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+    </style>
 </head>
 <body>
-    <div class="container" id="inputPhase">
-        <h1 class="input-title">> ENTER YOUR MESSAGE_</h1>
-        <div class="terminal-prompt">
-            <input type="text" id="messageInput" class="terminal-input" maxlength="200" autofocus>
+    <div class="container">
+        <div class="prompt">&gt; ENTER YOUR MESSAGE_</div>
+        
+        <div class="input-wrapper">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="输入你的文字..."
+                maxlength="100"
+                autocomplete="off"
+            >
         </div>
-        <button id="submitBtn" class="glitch-button">SUBMIT TO SYSTEM</button>
+
+        <button id="submitBtn" disabled>SUBMIT TO SYSTEM</button>
+        
+        <div class="status" id="status"></div>
     </div>
 
-    <div class="container hidden" id="successPhase">
-        <div class="success-message">
-            <h1 class="glitch-text">
-                <div class="glitch-layer">MESSAGE TRANSMITTED</div>
-                <div class="glitch-layer">MESSAGE TRANSMITTED</div>
-                <div class="glitch-layer">MESSAGE TRANSMITTED</div>
-            </h1>
-            <p class="terminal-label">SYSTEM ACTIVATED_</p>
-        </div>
-    </div>
+    <script src="config.js"></script>
+    <script>
+        const messageInput = document.getElementById('messageInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const status = document.getElementById('status');
 
-    <script type="module" src="logic.js"></script>
+        // 监听输入，控制按钮状态
+        messageInput.addEventListener('input', () => {
+            const hasText = messageInput.value.trim().length > 0;
+            submitBtn.disabled = !hasText;
+        });
+
+        // 提交处理
+        submitBtn.addEventListener('click', async () => {
+            const message = messageInput.value.trim();
+            
+            if (!message) {
+                status.textContent = 'ERROR: NO MESSAGE';
+                status.className = 'status error';
+                return;
+            }
+
+            // 禁用按钮和输入
+            submitBtn.disabled = true;
+            messageInput.disabled = true;
+            submitBtn.classList.add('processing');
+            status.textContent = 'TRANSMITTING TO SYSTEM...';
+            status.className = 'status';
+
+            try {
+                // 发送到Supabase触发iPad和ESP32
+                const response = await fetch(SUPABASE_URL + '/rest/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        content: message,
+                        status: 'RUN',
+                        created_at: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                status.textContent = 'TRANSMISSION SUCCESS';
+                status.className = 'status success';
+
+                // 等待500ms后跳转到微信文章
+                setTimeout(() => {
+                    window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                status.textContent = 'ERROR: TRANSMISSION FAILED';
+                status.className = 'status error';
+                
+                // 重新启用输入
+                submitBtn.disabled = false;
+                messageInput.disabled = false;
+                submitBtn.classList.remove('processing');
+            }
+        });
+
+        // 回车键提交
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !submitBtn.disabled) {
+                submitBtn.click();
+            }
+        });
+    </script>
 </body>
 </html>
