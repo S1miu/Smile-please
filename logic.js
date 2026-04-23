@@ -12,7 +12,7 @@ const submitBtn = document.getElementById('submitBtn');
 let userMessage = '';
 
 // 提交消息按钮
-submitBtn.addEventListener('click', async () => {
+submitBtn.addEventListener('click', () => {
     userMessage = messageInput.value.trim();
     
     if (!userMessage) {
@@ -24,27 +24,13 @@ submitBtn.addEventListener('click', async () => {
     submitBtn.disabled = true;
     submitBtn.textContent = 'SUBMITTING...';
     
-    try {
-        // 发送RUN信号（触发iPad和ESP32）
-        const success = await sendRunSignal();
-        
-        if (success) {
-            // 写入成功，延迟后跳转
-            setTimeout(() => {
-                window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
-            }, 1000);
-        } else {
-            // 写入失败，提示用户
-            alert('连接失败，请检查配置或网络连接。请查看控制台获取详细错误信息。');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'SUBMIT TO SYSTEM';
-        }
-    } catch (error) {
-        console.error('Submission error:', error);
-        alert('提交失败：' + error.message);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'SUBMIT TO SYSTEM';
-    }
+    // 立即发送到Supabase（不等待结果）
+    sendRunSignal();
+    
+    // 直接跳转，无视Supabase写入是否成功
+    setTimeout(() => {
+        window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
+    }, 500);
 });
 
 // 发送RUN信号到display端和ESP32
