@@ -24,13 +24,27 @@ submitBtn.addEventListener('click', async () => {
     submitBtn.disabled = true;
     submitBtn.textContent = 'SUBMITTING...';
     
-    // 发送RUN信号（触发iPad和ESP32）
-    const success = await sendRunSignal();
-    
-    // 无论成功与否，1.5秒后强制跳转到支付页面
-    setTimeout(() => {
-        window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
-    }, 1500);
+    try {
+        // 发送RUN信号（触发iPad和ESP32）
+        const success = await sendRunSignal();
+        
+        if (success) {
+            // 写入成功，延迟后跳转
+            setTimeout(() => {
+                window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
+            }, 1000);
+        } else {
+            // 写入失败，提示用户
+            alert('连接失败，请检查配置或网络连接。请查看控制台获取详细错误信息。');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'SUBMIT TO SYSTEM';
+        }
+    } catch (error) {
+        console.error('Submission error:', error);
+        alert('提交失败：' + error.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'SUBMIT TO SYSTEM';
+    }
 });
 
 // 发送RUN信号到display端和ESP32
@@ -38,7 +52,7 @@ async function sendRunSignal() {
     try {
         // 插入新记录到数据库（触发Realtime和ESP32轮询）
         const { data, error } = await supabase
-            .from('run_signals')
+            .from('commands')
             .insert([
                 {
                     message: userMessage,
