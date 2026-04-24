@@ -12,8 +12,8 @@
 
 // ========== 配置参数 ==========
 // WiFi设置
-const char* WIFI_SSID = "Biu";        // 修改为你的WiFi名称
-const char* WIFI_PASSWORD = "xiaopengyoubieyong";    // 修改为你的WiFi密码
+const char* WIFI_SSID = "smileplease";        // 修改为你的WiFi名称
+const char* WIFI_PASSWORD = "simiaobieku";    // 修改为你的WiFi密码
 
 // Supabase配置（从config.js中复制）
 const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co/rest/v1/commands?select=*&limit=1";           // 例如：https://xxx.supabase.co
