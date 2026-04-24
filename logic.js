@@ -41,7 +41,7 @@ async function sendRunSignal() {
             .from('commands')
             .insert([
                 {
-                    text: userMessage,
+                    message: userMessage,
                     processed: false
                 }
             ])

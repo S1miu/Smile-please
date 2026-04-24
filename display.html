@@ -105,15 +105,16 @@
 
     <!-- 运行状态 -->
     <div class="display-container" id="displayContainer">
-        <div class="message-display" id="messageDisplay"></div>
+        <div class="commands-display" id="commandsDisplay"></div>
         <div class="countdown" id="countdown">30</div>
     </div>
 
-    <script src="config.js"></script>
-    <script>
+    <script type="module">
+        import { SUPABASE_CONFIG } from './config.js';
+
         const readyIndicator = document.getElementById('readyIndicator');
         const displayContainer = document.getElementById('displayContainer');
-        const messageDisplay = document.getElementById('messageDisplay');
+        const commandsDisplay = document.getElementById('commandsDisplay');
         const countdownEl = document.getElementById('countdown');
 
         let isRunning = false;
@@ -123,17 +124,17 @@
         // 连接Supabase Realtime
         function connectToSupabase() {
             const ws = new WebSocket(
-                SUPABASE_URL.replace('https://', 'wss://').replace('http://', 'ws://') + 
-                '/realtime/v1/websocket?apikey=' + SUPABASE_ANON_KEY + 
+                SUPABASE_CONFIG.url.replace('https://', 'wss://').replace('http://', 'ws://') + 
+                '/realtime/v1/websocket?apikey=' + SUPABASE_CONFIG.anonKey + 
                 '&vsn=1.0.0'
             );
 
             ws.onopen = () => {
                 console.log('WebSocket connected');
                 
-                // 订阅messages表的变化
+                // 订阅commands表的变化
                 ws.send(JSON.stringify({
-                    topic: 'realtime:public:messages',
+                    topic: 'realtime:public:commands',
                     event: 'phx_join',
                     payload: {},
                     ref: '1'
@@ -157,8 +158,8 @@
                 
                 if (data.event === 'INSERT' && data.payload && data.payload.record) {
                     const record = data.payload.record;
-                    if (record.status === 'RUN' && !isRunning) {
-                        triggerDisplay(record.content);
+                    if (record.processed === false && !isRunning) {
+                        triggerDisplay(record.message);
                     }
                 }
             };
