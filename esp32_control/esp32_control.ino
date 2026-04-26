@@ -18,7 +18,7 @@ const char* password = "simiaobieku";   // 修改为你的WiFi密码
 
 // ========== API 配置 ==========
 // 选项1：使用 Supabase
-const char* apiUrl = "https://ghkzhbfqcuzkgrmxwoww.supabase.co/rest/v1/commands?select=*&order=created_at.desc&limit=1";
+const char* apiUrl = "https://ghkzhbfqcwzkgrmxwoww.supabase.co/rest/v1/commands?select=*&order=created_at.desc&limit=1";
 const char* apiKey = "sb_publishable_NSJeUhlK935dL5PC_XUSgQ_7KoVRDxQ";
 
 // 选项2：或使用自定义API端点

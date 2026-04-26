@@ -1,8 +1,6 @@
 /*
- * SMILE PLEASE - ESP32-S3 Motor Controller
- * 功能：监听Supabase API，触发步进电机30秒运行
- * 硬件：ESP32-S3 + 86步进电机
- * GPIO：12和14输出脉冲信号
+ * SMILE PLEASE - ESP32-S3 Motor Controller (Fixed Version)
+ * 功能：修正了 URL 拼接错误和函数作用域错误
  */
 
 #include <WiFi.h>
@@ -11,78 +9,69 @@
 #include <ArduinoJson.h>
 
 // ========== 配置参数 ==========
-// WiFi设置
-const char* WIFI_SSID = "smileplease";        // 修改为你的WiFi名称
-const char* WIFI_PASSWORD = "simiaobieku";    // 修改为你的WiFi密码
+const char* WIFI_SSID = "smileplease";        
+const char* WIFI_PASSWORD = "simiaobieku";    
 
-// Supabase配置（从config.js中复制）
-const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co"; // 只保留主域名         // 例如：https://xxx.supabase.co
-const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk"; // 从config.js复制
+// 修正：SUPABASE_URL 只保留主域名
+const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co"; 
+const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk"; 
 
-// GPIO引脚
-const int MOTOR_PIN_1 = 12;  // 步进电机控制引脚1
-const int MOTOR_PIN_2 = 14;  // 步进电机控制引脚2
+const int MOTOR_PIN_1 = 12;  
+const int MOTOR_PIN_2 = 14;  
+const int LED_PIN = 2;
 
-// 运行参数
-const int MOTOR_DURATION = 30000;  // 电机运行时长（30秒）
-const int PULSE_FREQUENCY = 200;   // 脉冲频率（Hz），可根据步进电机调整
-const int POLL_INTERVAL = 2000;    // API轮询间隔（2秒）
+const int MOTOR_DURATION = 30000;  
+const int PULSE_FREQUENCY = 200;   
+const int POLL_INTERVAL = 2000;    
 
-// 状态变量
 bool isRunning = false;
 unsigned long motorStartTime = 0;
 unsigned long lastPollTime = 0;
 String lastProcessedId = "";
 
-// ========== 初始化设置 ==========
+// 函数声明，确保编译器能找到它们
+void connectWiFi();
+void checkForNewMessage();
+void startMotor();
+void stopMotor();
+void generatePulse();
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
   
   Serial.println("\n========== SMILE PLEASE Motor Controller ==========");
-  Serial.println("Initializing ESP32-S3...");
   
-  // 配置GPIO引脚
   pinMode(MOTOR_PIN_1, OUTPUT);
   pinMode(MOTOR_PIN_2, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+  
   digitalWrite(MOTOR_PIN_1, LOW);
   digitalWrite(MOTOR_PIN_2, LOW);
   
-  Serial.println("GPIO pins configured (12, 14)");
-  
-  // 连接WiFi
   connectWiFi();
 }
 
-// ========== 主循环 ==========
 void loop() {
-  // 检查WiFi连接
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected, reconnecting...");
     connectWiFi();
     return;
   }
   
-  // 如果电机正在运行
   if (isRunning) {
     unsigned long elapsed = millis() - motorStartTime;
-    
     if (elapsed < MOTOR_DURATION) {
-      // 继续发送脉冲
       generatePulse();
     } else {
-      // 30秒到达，停止电机
       stopMotor();
     }
   } 
-  // 如果电机未运行，轮询API
   else if (millis() - lastPollTime > POLL_INTERVAL) {
     lastPollTime = millis();
     checkForNewMessage();
   }
 }
 
-// ========== WiFi连接 ==========
 void connectWiFi() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(WIFI_SSID);
@@ -91,7 +80,7 @@ void connectWiFi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
     attempts++;
@@ -99,126 +88,77 @@ void connectWiFi() {
   
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-    Serial.print("Signal strength: ");
-    Serial.print(WiFi.RSSI());
-    Serial.println(" dBm");
+    digitalWrite(LED_PIN, HIGH); // 联网成功灯亮
   } else {
-    Serial.println("\nWiFi connection failed!");
-    Serial.println("Retrying in 5 seconds...");
-    delay(5000);
+    Serial.println("\nWiFi connection failed! Restarting...");
+    delay(2000);
     ESP.restart();
   }
 }
 
-// ========== 检查新消息 ==========
 void checkForNewMessage() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  WiFiClientSecure client;
+  client.setInsecure(); // 跳过证书验证
   
-  // 使用WiFiClientSecure来处理HTTPS
-  WiFiClientSecure *client = new WiFiClientSecure;
-  if(client) {
-    // 跳过SSL证书验证（适用于开发/测试环境）
-    client->setInsecure();
-    
-    HTTPClient http;
-    
-    // 构建API URL - 查询最新的RUN状态记录
-    // 确保 URL 后面带上 apikey 参数，这样即使 Header 丢失也能通过
-    String url = String(SUPABASE_URL) + "/rest/v1/commands?select=*&order=created_at.desc&limit=1&apikey=" + String(SUPABASE_ANON_KEY);
+  HTTPClient http;
+  // 修正后的 URL 拼接
+  String url = String(SUPABASE_URL) + "/rest/v1/commands?select=*&order=created_at.desc&limit=1";
 
-    http.begin(*client, url);
-    http.addHeader("apikey", SUPABASE_ANON_KEY);
-    http.addHeader("Authorization", "Bearer " + String(SUPABASE_ANON_KEY));
+  http.begin(client, url);
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", "Bearer " + String(SUPABASE_ANON_KEY));
+  
+  int httpCode = http.GET();
+  
+  if (httpCode == 200) {
+    String payload = http.getString();
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, payload);
     
-    int httpCode = http.GET();
-    
-    if (httpCode == 200) {
-      String payload = http.getString();
+    if (!error && doc.size() > 0) {
+      JsonObject message = doc[0];
+      String messageId = message["id"].as<String>();
+      String status = message["status"].as<String>();
+      String textContent = message["text"].as<String>();
       
-      // 解析JSON
-      DynamicJsonDocument doc(1024);
-      DeserializationError error = deserializeJson(doc, payload);
-      
-      if (!error && doc.size() > 0) {
-        JsonObject message = doc[0];
-        String messageId = message["id"].as<String>();
-        String status = message["status"].as<String>();
-        String content = message["text"].as<String>();
-        
-        // 检查是否是新消息
-        if (status == "RUN" && messageId != lastProcessedId) {
-          Serial.println("\n========== NEW MESSAGE DETECTED ==========");
-          Serial.print("ID: ");
-          Serial.println(messageId);
-          Serial.print("text: ");
-          Serial.println(content);
-          Serial.println("==========================================");
-          
-          // 记录已处理的ID
-          lastProcessedId = messageId;
-          
-          // 启动电机
-          startMotor();
-        }
+      // 兼容 Run 和 RUN，同时对比 ID
+      if ((status == "Run" || status == "RUN") && messageId != lastProcessedId) {
+        Serial.println("\n--- NEW COMMAND RECEIVED ---");
+        Serial.print("Text: "); Serial.println(textContent);
+        lastProcessedId = messageId;
+        startMotor();
       } else {
-        Serial.print(".");  // 表示正在监听
-      }
-    } else {
-      Serial.print("\nHTTP Error: ");
-      Serial.println(httpCode);
-      if (httpCode == -1) {
-        Serial.println("Connection failed. Check:");
-        Serial.println("1. WiFi connection");
-        Serial.println("2. Supabase URL format");
-        Serial.println("3. Firewall settings");
+        Serial.print("."); // 心跳监测
       }
     }
-    
-    http.end();
-    delete client;
+  } else {
+    Serial.print("HTTP Error: ");
+    Serial.println(httpCode);
   }
+  http.end();
 }
 
-// ========== 启动电机 ==========
 void startMotor() {
-  Serial.println("\n>>> MOTOR STARTING <<<");
-  Serial.println("Duration: 30 seconds");
-  
+  Serial.println(">>> MOTOR STARTING <<<");
   isRunning = true;
   motorStartTime = millis();
-  
-  // 可选：立即发送一个启动脉冲
-  digitalWrite(MOTOR_PIN_1, HIGH);
-  digitalWrite(MOTOR_PIN_2, HIGH);
-  delay(10);
-  digitalWrite(MOTOR_PIN_1, LOW);
-  digitalWrite(MOTOR_PIN_2, LOW);
 }
 
-// ========== 生成脉冲信号 ==========
-void generatePulse() {
-  // 计算脉冲周期（微秒）
-  int pulsePeriod = 1000000 / PULSE_FREQUENCY;
-  int halfPeriod = pulsePeriod / 2;
-  
-  // 发送脉冲到两个引脚
-  digitalWrite(MOTOR_PIN_1, HIGH);
-  digitalWrite(MOTOR_PIN_2, HIGH);
-  delayMicroseconds(halfPeriod);
-  
-  digitalWrite(MOTOR_PIN_1, LOW);
-  digitalWrite(MOTOR_PIN_2, LOW);
-  delayMicroseconds(halfPeriod);
-}
-
-// ========== 停止电机 ==========
 void stopMotor() {
-  Serial.println("\n>>> MOTOR STOPPED <<<");
-  Serial.println("Ready for next message...\n");
-  
+  Serial.println(">>> MOTOR STOPPED <<<");
   isRunning = false;
   digitalWrite(MOTOR_PIN_1, LOW);
   digitalWrite(MOTOR_PIN_2, LOW);
+}
+
+void generatePulse() {
+  int pulsePeriod = 1000000 / PULSE_FREQUENCY;
+  int halfPeriod = pulsePeriod / 2;
+  
+  digitalWrite(MOTOR_PIN_1, HIGH);
+  digitalWrite(MOTOR_PIN_2, HIGH);
+  delayMicroseconds(halfPeriod);
+  digitalWrite(MOTOR_PIN_1, LOW);
+  digitalWrite(MOTOR_PIN_2, LOW);
+  delayMicroseconds(halfPeriod);
 }
