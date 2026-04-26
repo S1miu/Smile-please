@@ -16,7 +16,7 @@ const char* WIFI_SSID = "smileplease";        // 修改为你的WiFi名称
 const char* WIFI_PASSWORD = "simiaobieku";    // 修改为你的WiFi密码
 
 // Supabase配置（从config.js中复制）
-const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co/rest/v1/commands?select=*&limit=1";           // 例如：https://xxx.supabase.co
+const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co"; // 只保留主域名         // 例如：https://xxx.supabase.co
 const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk"; // 从config.js复制
 
 // GPIO引脚
@@ -125,58 +125,59 @@ void checkForNewMessage() {
     HTTPClient http;
     
     // 构建API URL - 查询最新的RUN状态记录
-    String url = String(SUPABASE_URL) + "/rest/v1/commands?select=*&order=created_at.desc&limit=1";
-    
+    // 确保 URL 后面带上 apikey 参数，这样即使 Header 丢失也能通过
+    String url = String(SUPABASE_URL) + "/rest/v1/commands?select=*&order=created_at.desc&limit=1&apikey=" + String(SUPABASE_ANON_KEY);
+
     http.begin(*client, url);
     http.addHeader("apikey", SUPABASE_ANON_KEY);
-    http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+    http.addHeader("Authorization", "Bearer " + String(SUPABASE_ANON_KEY));
     
     int httpCode = http.GET();
-  
-  if (httpCode == 200) {
-    String payload = http.getString();
     
-    // 解析JSON
-    DynamicJsonDocument doc(1024);
-    DeserializationError error = deserializeJson(doc, payload);
-    
-    if (!error && doc.size() > 0) {
-      JsonObject message = doc[0];
-      String messageId = message["id"].as<String>();
-      String status = message["status"].as<String>();
-      String content = message["content"].as<String>();
+    if (httpCode == 200) {
+      String payload = http.getString();
       
-      // 检查是否是新消息
-      if (status == "RUN" && messageId != lastProcessedId) {
-        Serial.println("\n========== NEW MESSAGE DETECTED ==========");
-        Serial.print("ID: ");
-        Serial.println(messageId);
-        Serial.print("Content: ");
-        Serial.println(content);
-        Serial.println("==========================================");
+      // 解析JSON
+      DynamicJsonDocument doc(1024);
+      DeserializationError error = deserializeJson(doc, payload);
+      
+      if (!error && doc.size() > 0) {
+        JsonObject message = doc[0];
+        String messageId = message["id"].as<String>();
+        String status = message["status"].as<String>();
+        String content = message["text"].as<String>();
         
-        // 记录已处理的ID
-        lastProcessedId = messageId;
-        
-        // 启动电机
-        startMotor();
+        // 检查是否是新消息
+        if (status == "RUN" && messageId != lastProcessedId) {
+          Serial.println("\n========== NEW MESSAGE DETECTED ==========");
+          Serial.print("ID: ");
+          Serial.println(messageId);
+          Serial.print("text: ");
+          Serial.println(content);
+          Serial.println("==========================================");
+          
+          // 记录已处理的ID
+          lastProcessedId = messageId;
+          
+          // 启动电机
+          startMotor();
+        }
+      } else {
+        Serial.print(".");  // 表示正在监听
       }
     } else {
-      Serial.print(".");  // 表示正在监听
+      Serial.print("\nHTTP Error: ");
+      Serial.println(httpCode);
+      if (httpCode == -1) {
+        Serial.println("Connection failed. Check:");
+        Serial.println("1. WiFi connection");
+        Serial.println("2. Supabase URL format");
+        Serial.println("3. Firewall settings");
+      }
     }
-  } else {
-    Serial.print("\nHTTP Error: ");
-    Serial.println(httpCode);
-    if (httpCode == -1) {
-      Serial.println("Connection failed. Check:");
-      Serial.println("1. WiFi connection");
-      Serial.println("2. Supabase URL format");
-      Serial.println("3. Firewall settings");
-    }
-  }
-  
-  http.end();
-  delete client;
+    
+    http.end();
+    delete client;
   }
 }
 
