@@ -194,7 +194,7 @@
 
             try {
                 // 发送到Supabase触发iPad和ESP32
-                const response = await fetch(SUPABASE_URL + '/rest/v1/messages', {
+                const response = await fetch(SUPABASE_URL + '/rest/v1/commands', {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -203,9 +203,8 @@
                         'Prefer': 'return=minimal'
                     },
                     body: JSON.stringify({
-                        content: message,
-                        status: 'RUN',
-                        created_at: new Date().toISOString()
+                        text: message,
+                        status: 'Run'
                     })
                 });
 

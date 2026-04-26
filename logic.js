@@ -41,8 +41,8 @@ async function sendRunSignal() {
             .from('commands')
             .insert([
                 {
-                    message: userMessage,
-                    processed: false
+                    text: userMessage,
+                    status: 'Run'
                 }
             ])
             .select();
