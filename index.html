@@ -3,239 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMILE PLEASE - SYSTEM ENTRY</title>
+    <title>SMILE PLEASE - 交互控制系统</title>
+    <!-- 引入 Supabase JS 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            background: #000;
+            background-color: #000;
             color: #fff;
-            font-family: 'Courier New', monospace;
-            height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
             overflow: hidden;
         }
-
         .container {
-            text-align: center;
-            width: 90%;
+            width: 80%;
             max-width: 600px;
+            text-align: center;
         }
-
-        .prompt {
-            font-size: 18px;
-            margin-bottom: 30px;
+        .label {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
             letter-spacing: 2px;
-            opacity: 0.9;
         }
-
-        .input-wrapper {
-            position: relative;
-            margin-bottom: 50px;
-        }
-
-        #messageInput {
-            width: 100%;
+        input {
             background: transparent;
             border: none;
             border-bottom: 2px solid #fff;
             color: #fff;
-            font-size: 24px;
-            font-family: 'Courier New', monospace;
-            padding: 15px 5px;
-            outline: none;
-            letter-spacing: 1px;
-            transition: border-color 0.3s;
-        }
-
-        #messageInput:focus {
-            border-bottom-color: #fff;
-            animation: borderPulse 1.5s infinite;
-        }
-
-        @keyframes borderPulse {
-            0%, 100% { border-bottom-color: #fff; }
-            50% { border-bottom-color: #666; }
-        }
-
-        #messageInput::placeholder {
-            color: #666;
-            opacity: 1;
-        }
-
-        .cursor {
-            display: inline-block;
-            width: 10px;
-            height: 24px;
-            background: #fff;
-            animation: blink 1s infinite;
-            margin-left: 5px;
-            vertical-align: middle;
-        }
-
-        @keyframes blink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
-        }
-
-        #submitBtn {
             width: 100%;
-            max-width: 400px;
-            padding: 20px;
+            font-size: 1.5rem;
+            outline: none;
+            text-align: left;
+            padding: 10px 0;
+            margin-bottom: 3rem;
+        }
+        button {
             background: transparent;
             border: 2px solid #fff;
             color: #fff;
-            font-size: 20px;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 4px;
+            padding: 1.5rem 3rem;
+            font-size: 1.2rem;
             cursor: pointer;
             transition: all 0.3s;
+            width: 100%;
             text-transform: uppercase;
-        }
-
-        #submitBtn:hover:not(:disabled) {
-            background: #fff;
-            color: #000;
-            transform: scale(1.02);
-        }
-
-        #submitBtn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            border-color: #333;
-            color: #333;
-        }
-
-        .status {
-            margin-top: 30px;
-            font-size: 14px;
-            color: #666;
             letter-spacing: 2px;
-            min-height: 20px;
         }
-
-        .error {
+        button:hover {
+            background-color: #fff;
+            color: #000;
+        }
+        button:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            background: transparent;
+        }
+        #errorDisplay {
             color: #ff3333;
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            min-height: 1.2em;
         }
-
-        .success {
-            color: #33ff33;
+        /* 传输中的动画效果 */
+        .transmitting {
+            animation: blink 0.5s infinite;
         }
-
-        /* Processing animation */
-        .processing {
-            animation: glitch 0.3s infinite;
-        }
-
-        @keyframes glitch {
-            0% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(-2px, -2px); }
-            60% { transform: translate(2px, 2px); }
-            80% { transform: translate(2px, -2px); }
-            100% { transform: translate(0); }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="prompt">&gt; ENTER YOUR MESSAGE_</div>
-        
-        <div class="input-wrapper">
-            <input 
-                type="text" 
-                id="messageInput" 
-                placeholder="输入你的文字..."
-                maxlength="100"
-                autocomplete="off"
-            >
-        </div>
-
-        <button id="submitBtn" disabled>SUBMIT TO SYSTEM</button>
-        
-        <div class="status" id="status"></div>
+        <div class="label">> ENTER YOUR MESSAGE_</div>
+        <input type="text" id="messageInput" placeholder="你好" autofocus>
+        <!-- 移除了 HTML 里的 onclick，改用 JS 绑定，避免 ReferenceError -->
+        <button id="submitBtn">SUBMIT TO SYSTEM</button>
+        <div id="errorDisplay"></div>
     </div>
 
-    <script src="config.js"></script>
     <script>
+        // 配置信息 (使用正确的 qcwz 域名)
+        const SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
+        const WECHAT_URL = "https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA";
+
+        // 初始化 Supabase 客户端
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // 获取 DOM 元素
         const messageInput = document.getElementById('messageInput');
         const submitBtn = document.getElementById('submitBtn');
-        const status = document.getElementById('status');
+        const errorDisplay = document.getElementById('errorDisplay');
 
-        // 监听输入，控制按钮状态
-        messageInput.addEventListener('input', () => {
-            const hasText = messageInput.value.trim().length > 0;
-            submitBtn.disabled = !hasText;
-        });
-
-        // 提交处理
-        submitBtn.addEventListener('click', async () => {
-            const message = messageInput.value.trim();
+        // 定义提交函数
+        async function handleSubmission() {
+            const userMessage = messageInput.value.trim();
             
-            if (!message) {
-                status.textContent = 'ERROR: NO MESSAGE';
-                status.className = 'status error';
+            if (!userMessage) {
+                errorDisplay.innerText = "ERROR: MESSAGE IS EMPTY";
                 return;
             }
 
-            // 禁用按钮和输入
+            // UI 反馈
+            errorDisplay.innerText = "";
             submitBtn.disabled = true;
-            messageInput.disabled = true;
-            submitBtn.classList.add('processing');
-            status.textContent = 'TRANSMITTING TO SYSTEM...';
-            status.className = 'status';
+            submitBtn.innerText = "TRANSMITTING...";
+            submitBtn.classList.add('transmitting');
 
             try {
-                // 发送到Supabase触发iPad和ESP32
-                const response = await fetch(SUPABASE_URL + '/rest/v1/commands', {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify({
-                        text: message,
-                        status: 'Run'
-                    })
-                });
+                // 1. 发送数据到 Supabase
+                const { data, error } = await supabaseClient
+                    .from('commands')
+                    .insert([
+                        { 
+                            text: userMessage, 
+                            status: 'Run' 
+                        }
+                    ]);
 
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
+                if (error) throw error;
 
-                status.textContent = 'TRANSMISSION SUCCESS';
-                status.className = 'status success';
+                console.log("Transmission Successful:", data);
+                submitBtn.innerText = "SUCCESS";
 
-                // 等待500ms后跳转到微信文章
+                // 2. 延迟跳转微信链接
                 setTimeout(() => {
-                    window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
-                }, 500);
+                    window.location.href = WECHAT_URL;
+                }, 800);
 
-            } catch (error) {
-                console.error('Error:', error);
-                status.textContent = 'ERROR: TRANSMISSION FAILED';
-                status.className = 'status error';
-                
-                // 重新启用输入
+            } catch (err) {
+                console.error("Transmission Failed:", err);
+                errorDisplay.innerText = "ERROR: " + err.message;
                 submitBtn.disabled = false;
-                messageInput.disabled = false;
-                submitBtn.classList.remove('processing');
+                submitBtn.innerText = "SUBMIT TO SYSTEM";
+                submitBtn.classList.remove('transmitting');
             }
-        });
+        }
 
-        // 回车键提交
+        // 绑定点击事件
+        submitBtn.addEventListener('click', handleSubmission);
+
+        // 支持回车提交
         messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !submitBtn.disabled) {
-                submitBtn.click();
+            if (e.key === 'Enter') {
+                handleSubmission();
             }
         });
     </script>
