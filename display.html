@@ -2,36 +2,56 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMILE PLEASE - 实时展示端</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SMILE PLEASE - EXHIBITION DISPLAY</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 基础样式：彻底清除 iPad 默认间距 */
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+        }
+
         body {
             background: #000;
             color: #fff;
             font-family: 'Courier New', Courier, monospace;
             height: 100vh;
+            width: 100vw;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            transition: background 0.1s;
+            background-color: #000;
         }
 
-        /* 待机状态：右下角呼吸灯 */
-        .ready-indicator {
+        /* 状态指示器：极小，不干扰展览，但方便调试 */
+        #statusPanel {
             position: absolute;
-            bottom: 30px;
-            right: 30px;
+            top: 10px;
+            left: 10px;
+            font-size: 8px;
+            color: #1a1a1a; /* 极暗，近乎看不见 */
+            letter-spacing: 1px;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        /* 待机状态：呼吸感 */
+        #standby {
             font-size: 14px;
-            letter-spacing: 3px;
-            animation: breathe 2s infinite;
+            letter-spacing: 5px;
+            opacity: 0.5;
+            animation: breathe 3s ease-in-out infinite;
             text-transform: uppercase;
         }
+
         @keyframes breathe {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 1; }
+            0%, 100% { opacity: 0.1; transform: scale(0.98); }
+            50% { opacity: 0.6; transform: scale(1.02); }
         }
 
         /* 运行容器 */
@@ -42,115 +62,161 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 10;
+            position: relative;
         }
 
-        /* 闪烁背景效果 */
-        .strobe-mode {
-            animation: strobe 0.1s infinite;
-        }
-        @keyframes strobe {
-            0%, 49% { background: #000; color: #fff; }
-            50%, 100% { background: #fff; color: #000; }
+        /* 频闪动画 */
+        .active-strobe {
+            animation: strobeFrame 0.08s infinite;
         }
 
-        /* 消息文字样式 */
+        @keyframes strobeFrame {
+            0%, 49% { background-color: #000; color: #fff; }
+            50%, 100% { background-color: #fff; color: #000; }
+        }
+
+        /* 核心文字：Glitch 效果 */
         #messageText {
-            font-size: 10vw;
+            font-size: 15vw;
             font-weight: 900;
             text-align: center;
-            padding: 0 40px;
+            padding: 0 5%;
             word-break: break-all;
-            line-height: 1.2;
-            z-index: 20;
-            text-transform: uppercase;
+            line-height: 1;
+            z-index: 10;
+            /* 故障阴影 */
+            text-shadow: 4px 0 #ff0000, -4px 0 #00ffff;
+            animation: textGlitch 0.2s infinite;
         }
 
-        /* 倒计时样式 */
+        @keyframes textGlitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-3px, 2px); }
+            40% { transform: translate(-3px, -2px); }
+            60% { transform: translate(3px, 2px); }
+            80% { transform: translate(3px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        /* 倒计时 */
         #timer {
-            margin-top: 40px;
-            font-size: 5vw;
+            position: absolute;
+            bottom: 10%;
+            font-size: 6vw;
             font-weight: bold;
             font-variant-numeric: tabular-nums;
+            letter-spacing: 10px;
         }
     </style>
 </head>
 <body>
 
-    <!-- 待机显示 -->
-    <div id="standby" class="ready-indicator">System Ready_</div>
+    <!-- 调试面板 -->
+    <div id="statusPanel">INIT_OS...</div>
 
-    <!-- 运行显示 -->
+    <!-- 待机界面 -->
+    <div id="standby">SMILE PLEASE : READY_</div>
+
+    <!-- 运行界面 -->
     <div id="displayContent">
         <div id="messageText"></div>
         <div id="timer">30</div>
     </div>
 
-    <!-- 引入 Supabase 库 -->
+    <!-- 加载 Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // 配置信息
+        // 1. 配置信息 (确保与硬件端完全一致)
         const SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
 
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let supabaseClient;
+        let isRunning = false;
 
+        const panel = document.getElementById('statusPanel');
         const standbyEl = document.getElementById('standby');
         const contentEl = document.getElementById('displayContent');
         const textEl = document.getElementById('messageText');
         const timerEl = document.getElementById('timer');
 
-        let isRunning = false;
+        // 2. 初始化逻辑：确保库已加载
+        function initialize() {
+            if (typeof window.supabase === 'undefined') {
+                panel.innerText = "LINK_ERR: RETRYING...";
+                setTimeout(initialize, 500);
+                return;
+            }
 
-        // 核心功能：触发 30 秒展示
-        function triggerInstallation(message) {
+            try {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                panel.innerText = "CLIENT_OK: SYNCING...";
+                startRealtime();
+            } catch (e) {
+                panel.innerText = "FATAL: " + e.message;
+            }
+        }
+
+        // 3. 实时监听逻辑
+        function startRealtime() {
+            const channel = supabaseClient
+                .channel('installation_sync')
+                .on(
+                    'postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'commands' }, 
+                    (payload) => {
+                        console.log('New Command!', payload.new);
+                        const status = payload.new.status;
+                        // 兼容多种 Run 写法
+                        if (status === 'Run' || status === 'RUN') {
+                            runSequence(payload.new.text || "...");
+                        }
+                    }
+                )
+                .subscribe((status) => {
+                    panel.innerText = "ONLINE: " + status.toUpperCase();
+                });
+        }
+
+        // 4. 艺术展示序列 (30秒)
+        function runSequence(msg) {
             if (isRunning) return;
             isRunning = true;
 
-            // 1. 切换 UI 状态
+            // 进入频闪模式
             standbyEl.style.display = 'none';
             contentEl.style.display = 'flex';
-            document.body.classList.add('strobe-mode');
-            textEl.innerText = message;
+            document.body.classList.add('active-strobe');
+            textEl.innerText = msg;
 
-            // 2. 倒计时逻辑
-            let timeLeft = 30;
-            timerEl.innerText = timeLeft;
+            let secondsLeft = 30;
+            timerEl.innerText = secondsLeft;
 
             const countdown = setInterval(() => {
-                timeLeft--;
-                timerEl.innerText = timeLeft;
-                if (timeLeft <= 0) {
+                secondsLeft--;
+                timerEl.innerText = secondsLeft;
+                
+                if (secondsLeft <= 0) {
                     clearInterval(countdown);
-                    resetInstallation();
+                    stopSequence();
                 }
             }, 1000);
         }
 
-        // 重置回待机
-        function resetInstallation() {
+        // 5. 停止展示
+        function stopSequence() {
             isRunning = false;
-            document.body.classList.remove('strobe-mode');
+            document.body.classList.remove('active-strobe');
             contentEl.style.display = 'none';
             standbyEl.style.display = 'block';
             textEl.innerText = "";
         }
 
-        // 3. 订阅数据库实时变动 (Realtime)
-        console.log("正在监听指令...");
-        supabaseClient
-            .channel('any')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'commands' }, payload => {
-                console.log('检测到新指令:', payload.new);
-                if (payload.new.status === 'Run' || payload.new.status === 'RUN') {
-                    triggerInstallation(payload.new.text);
-                }
-            })
-            .subscribe();
+        // 自动启动
+        window.onload = initialize;
 
-        // 调试用：点击屏幕手动模拟一次触发
-        // window.onclick = () => triggerInstallation("调试测试");
+        // 为 iPad 调试准备：点击屏幕可手动模拟测试一次
+        // window.onclick = () => runSequence("DEBUG_MODE");
     </script>
 </body>
 </html>
