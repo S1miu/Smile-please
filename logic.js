@@ -1,63 +1,57 @@
+/**
+ * SMILE PLEASE - 前端提交逻辑 (Fixed Version)
+ * 修正了：Supabase URL、字段名、微信跳转链接
+ */
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SUPABASE_CONFIG, PAYMENT_CONFIG } from './config.js';
 
-const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+// 配置信息
+const SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co"; // 确保是 qcwz
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
+const WECHAT_URL = "https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA";
 
-// 获取DOM元素
-const inputPhase = document.getElementById('inputPhase');
-const successPhase = document.getElementById('successPhase');
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const messageInput = document.getElementById('messageInput');
 const submitBtn = document.getElementById('submitBtn');
 
-let userMessage = '';
-
-// 提交消息按钮
-submitBtn.addEventListener('click', () => {
-    userMessage = messageInput.value.trim();
+async function submitMessage() {
+    const userMessage = messageInput.value.trim();
     
     if (!userMessage) {
-        alert('请输入您的消息');
+        alert('请输入内容');
         return;
     }
     
-    // 禁用按钮防止重复点击
+    // 禁用界面
     submitBtn.disabled = true;
-    submitBtn.textContent = 'SUBMITTING...';
+    submitBtn.textContent = 'TRANSMITTING...';
     
-    // 立即发送到Supabase（不等待结果）
-    sendRunSignal();
-    
-    // 直接跳转，无视Supabase写入是否成功
-    setTimeout(() => {
-        window.location.href = 'https://mp.weixin.qq.com/s/n9DZljUjK9J5ErMHOw8TqA';
-    }, 500);
-});
-
-// 发送RUN信号到display端和ESP32
-async function sendRunSignal() {
     try {
-        // 插入新记录到数据库（触发Realtime和ESP32轮询）
+        // 插入记录到 commands 表
         const { data, error } = await supabase
             .from('commands')
             .insert([
                 {
-                    text: userMessage,
-                    status: 'Run'
+                    text: userMessage, // 数据库列名
+                    status: 'Run'      // 电机触发标记
                 }
-            ])
-            .select();
+            ]);
         
-        if (error) {
-            console.error('Failed to insert run signal:', error);
-            return false;
-        } else {
-            console.log('Run signal sent successfully:', data);
-            return true;
-        }
+        if (error) throw error;
+
+        console.log('Success:', data);
+        
+        // 成功后跳转到微信链接
+        window.location.href = WECHAT_URL;
+
     } catch (error) {
-        console.error('Failed to send run signal:', error);
-        return false;
+        console.error('Failed:', error.message);
+        alert('发送失败，请检查网络: ' + error.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'SUBMIT TO SYSTEM';
     }
 }
 
-console.log('Smile Please system initialized');
+// 绑定按钮事件
+submitBtn.addEventListener('click', submitMessage);

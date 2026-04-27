@@ -3,287 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMILE PLEASE - DISPLAY</title>
+    <title>SMILE PLEASE - 实时展示端</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: #000;
             color: #fff;
-            font-family: 'Courier New', monospace;
+            font-family: 'Courier New', Courier, monospace;
             height: 100vh;
             overflow: hidden;
-            position: relative;
-        }
-
-        /* 待机状态 */
-        .ready-indicator {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            font-size: 12px;
-            letter-spacing: 2px;
-            opacity: 0.5;
-            animation: readyBlink 2s infinite;
-        }
-
-        @keyframes readyBlink {
-            0%, 50% { opacity: 0.5; }
-            51%, 100% { opacity: 0; }
-        }
-
-        /* 运行状态容器 */
-        .display-container {
-            display: none;
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-        }
-
-        .display-container.active {
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            transition: background 0.1s;
         }
 
-        /* 闪烁效果 */
-        .strobe {
-            animation: strobeEffect 0.1s infinite;
+        /* 待机状态：右下角呼吸灯 */
+        .ready-indicator {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            font-size: 14px;
+            letter-spacing: 3px;
+            animation: breathe 2s infinite;
+            text-transform: uppercase;
+        }
+        @keyframes breathe {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
         }
 
-        @keyframes strobeEffect {
+        /* 运行容器 */
+        #displayContent {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        /* 闪烁背景效果 */
+        .strobe-mode {
+            animation: strobe 0.1s infinite;
+        }
+        @keyframes strobe {
             0%, 49% { background: #000; color: #fff; }
             50%, 100% { background: #fff; color: #000; }
         }
 
-        /* 文字显示区域 */
-        .message-display {
-            width: 100%;
-            height: 60vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 80px;
-            font-weight: bold;
-            letter-spacing: 10px;
+        /* 消息文字样式 */
+        #messageText {
+            font-size: 10vw;
+            font-weight: 900;
             text-align: center;
-            padding: 0 50px;
-            overflow: hidden;
-            position: relative;
+            padding: 0 40px;
+            word-break: break-all;
+            line-height: 1.2;
+            z-index: 20;
+            text-transform: uppercase;
         }
 
-        /* 固定显示（≤5字） */
-        .message-static {
-            white-space: nowrap;
-        }
-
-        /* 滚动显示（>5字） */
-        .message-scroll {
-            position: absolute;
-            white-space: nowrap;
-            left: 100%;
-        }
-
-        /* 倒计时 */
-        .countdown {
-            font-size: 120px;
+        /* 倒计时样式 */
+        #timer {
+            margin-top: 40px;
+            font-size: 5vw;
             font-weight: bold;
-            letter-spacing: 20px;
-            margin-top: 50px;
             font-variant-numeric: tabular-nums;
         }
     </style>
 </head>
 <body>
-    <!-- 待机状态 -->
-    <div class="ready-indicator" id="readyIndicator">SYSTEM READY_</div>
 
-    <!-- 运行状态 -->
-    <div class="display-container" id="displayContainer">
-        <div class="message-display" id="messageDisplay"></div>
-        <div class="countdown" id="countdown">30</div>
+    <!-- 待机显示 -->
+    <div id="standby" class="ready-indicator">System Ready_</div>
+
+    <!-- 运行显示 -->
+    <div id="displayContent">
+        <div id="messageText"></div>
+        <div id="timer">30</div>
     </div>
 
-    <script type="module">
-        import { SUPABASE_CONFIG } from './config.js';
+    <!-- 引入 Supabase 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-        const readyIndicator = document.getElementById('readyIndicator');
-        const displayContainer = document.getElementById('displayContainer');
-        const messageDisplay = document.getElementById('messageDisplay');
-        const countdownEl = document.getElementById('countdown');
+    <script>
+        // 配置信息
+        const SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const standbyEl = document.getElementById('standby');
+        const contentEl = document.getElementById('displayContent');
+        const textEl = document.getElementById('messageText');
+        const timerEl = document.getElementById('timer');
 
         let isRunning = false;
-        let currentTimeout = null;
-        let scrollInterval = null;
 
-        // 连接Supabase Realtime
-        function connectToSupabase() {
-            const ws = new WebSocket(
-                SUPABASE_CONFIG.url.replace('https://', 'wss://').replace('http://', 'ws://') + 
-                '/realtime/v1/websocket?apikey=' + SUPABASE_CONFIG.anonKey + 
-                '&vsn=1.0.0'
-            );
-
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                
-                // 订阅commands表的变化
-                ws.send(JSON.stringify({
-                    topic: 'realtime:public:commands',
-                    event: 'phx_join',
-                    payload: {},
-                    ref: '1'
-                }));
-
-                // 发送心跳
-                setInterval(() => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            topic: 'phoenix',
-                            event: 'heartbeat',
-                            payload: {},
-                            ref: Date.now().toString()
-                        }));
-                    }
-                }, 30000);
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                
-                if (data.event === 'INSERT' && data.payload && data.payload.record) {
-                    const record = data.payload.record;
-                    if (record.processed === false && !isRunning) {
-                        triggerDisplay(record.message);
-                    }
-                }
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                setTimeout(connectToSupabase, 3000);
-            };
-
-            ws.onclose = () => {
-                console.log('WebSocket closed, reconnecting...');
-                setTimeout(connectToSupabase, 3000);
-            };
-        }
-
-        // 触发显示效果
-        function triggerDisplay(message) {
+        // 核心功能：触发 30 秒展示
+        function triggerInstallation(message) {
             if (isRunning) return;
             isRunning = true;
 
-            // 清除之前的定时器
-            if (currentTimeout) clearTimeout(currentTimeout);
-            if (scrollInterval) clearInterval(scrollInterval);
+            // 1. 切换 UI 状态
+            standbyEl.style.display = 'none';
+            contentEl.style.display = 'flex';
+            document.body.classList.add('strobe-mode');
+            textEl.innerText = message;
 
-            // 隐藏待机指示器
-            readyIndicator.style.display = 'none';
-            
-            // 显示运行容器
-            displayContainer.classList.add('active');
-            
-            // 启动闪烁效果
-            document.body.classList.add('strobe');
-
-            // 判断文字长度
-            const messageLength = message.length;
-            messageDisplay.innerHTML = '';
-
-            if (messageLength <= 5) {
-                // ≤5字：固定居中显示
-                const staticDiv = document.createElement('div');
-                staticDiv.className = 'message-static';
-                staticDiv.textContent = message;
-                messageDisplay.appendChild(staticDiv);
-            } else {
-                // >5字：滚动显示（每秒3字符）
-                const scrollDiv = document.createElement('div');
-                scrollDiv.className = 'message-scroll';
-                scrollDiv.textContent = message;
-                messageDisplay.appendChild(scrollDiv);
-
-                // 计算滚动参数
-                const displayWidth = messageDisplay.offsetWidth;
-                const messageWidth = scrollDiv.offsetWidth;
-                const totalDistance = displayWidth + messageWidth;
-                
-                // 每秒3字符，每个字符按80px字号估算约60px宽
-                const pixelsPerChar = 60;
-                const charsPerSecond = 3;
-                const pixelsPerSecond = charsPerSecond * pixelsPerChar;
-                const duration = totalDistance / pixelsPerSecond;
-
-                let position = displayWidth;
-                const updateInterval = 50; // 50ms更新一次
-                const pixelsPerUpdate = (pixelsPerSecond / 1000) * updateInterval;
-
-                scrollInterval = setInterval(() => {
-                    position -= pixelsPerUpdate;
-                    scrollDiv.style.left = position + 'px';
-
-                    // 滚动完成后重新开始
-                    if (position < -messageWidth) {
-                        position = displayWidth;
-                    }
-                }, updateInterval);
-            }
-
-            // 倒计时
+            // 2. 倒计时逻辑
             let timeLeft = 30;
-            countdownEl.textContent = timeLeft;
+            timerEl.innerText = timeLeft;
 
-            const countdownInterval = setInterval(() => {
+            const countdown = setInterval(() => {
                 timeLeft--;
-                countdownEl.textContent = timeLeft;
-
+                timerEl.innerText = timeLeft;
                 if (timeLeft <= 0) {
-                    clearInterval(countdownInterval);
-                    resetDisplay();
+                    clearInterval(countdown);
+                    resetInstallation();
                 }
             }, 1000);
-
-            // 30秒后自动重置
-            currentTimeout = setTimeout(() => {
-                resetDisplay();
-            }, 30000);
         }
 
-        // 重置显示
-        function resetDisplay() {
+        // 重置回待机
+        function resetInstallation() {
             isRunning = false;
-            
-            // 停止闪烁
-            document.body.classList.remove('strobe');
-            
-            // 清除滚动
-            if (scrollInterval) {
-                clearInterval(scrollInterval);
-                scrollInterval = null;
-            }
-            
-            // 隐藏运行容器
-            displayContainer.classList.remove('active');
-            messageDisplay.innerHTML = '';
-            
-            // 显示待机指示器
-            readyIndicator.style.display = 'block';
+            document.body.classList.remove('strobe-mode');
+            contentEl.style.display = 'none';
+            standbyEl.style.display = 'block';
+            textEl.innerText = "";
         }
 
-        // 启动连接
-        connectToSupabase();
+        // 3. 订阅数据库实时变动 (Realtime)
+        console.log("正在监听指令...");
+        supabaseClient
+            .channel('any')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'commands' }, payload => {
+                console.log('检测到新指令:', payload.new);
+                if (payload.new.status === 'Run' || payload.new.status === 'RUN') {
+                    triggerInstallation(payload.new.text);
+                }
+            })
+            .subscribe();
 
-        // 测试功能（开发时使用，可以在控制台调用）
-        window.testDisplay = (msg) => {
-            triggerDisplay(msg || '测试消息');
-        };
+        // 调试用：点击屏幕手动模拟一次触发
+        // window.onclick = () => triggerInstallation("调试测试");
     </script>
 </body>
 </html>
