@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMILE PLEASE - SCROLLING DISPLAY</title>
+    <title>SMILE PLEASE - STABLE DISPLAY</title>
     <style>
-        /* 基础样式 */
+        /* 基础样式：黑白极简 */
         * { 
             margin: 0; 
             padding: 0; 
@@ -27,18 +27,18 @@
             align-items: center;
         }
 
-        /* 状态指示器：保持极暗 */
+        /* 状态指示器：极暗，仅供调试 */
         #statusPanel {
             position: absolute;
             top: 10px;
             left: 10px;
-            font-size: 8px;
-            color: #1a1a1a;
+            font-size: 10px;
+            color: #1a1a1a; 
             letter-spacing: 1px;
             z-index: 100;
         }
 
-        /* 待机界面 */
+        /* 待机界面：呼吸灯效果 */
         #standby {
             font-size: 14px;
             letter-spacing: 5px;
@@ -52,7 +52,7 @@
             50% { opacity: 0.5; }
         }
 
-        /* 滚动容器 */
+        /* 运行容器 */
         #displayContent {
             display: none;
             width: 100vw;
@@ -64,7 +64,7 @@
             justify-content: center;
         }
 
-        /* 核心字幕样式 */
+        /* 核心字幕：Glitch 艺术风格 */
         #messageWrapper {
             display: inline-block;
             white-space: nowrap;
@@ -73,23 +73,21 @@
         }
 
         #messageText {
-            font-size: 25vh; /* 调大字号，让滚动更有冲击力 */
+            font-size: 25vh; 
             font-weight: 900;
-            padding-right: 100vw; /* 确保滚动完全消失 */
-            text-shadow: 3px 0 #ff0000, -3px 0 #00ffff; /* 保留色彩分离效果 */
+            padding-right: 100vw; 
+            text-shadow: 4px 0 #ff0000, -4px 0 #00ffff; 
             animation: textFlicker 0.5s infinite;
         }
 
-        /* 滚动动画由 JS 动态创建，以适配文字长度 */
-
         @keyframes textFlicker {
             0% { opacity: 1; transform: skew(0deg); }
-            10% { opacity: 0.8; transform: skew(1deg); }
+            10% { opacity: 0.8; transform: skew(0.5deg); }
             20% { opacity: 1; transform: skew(0deg); }
             100% { opacity: 1; transform: skew(0deg); }
         }
 
-        /* 底部倒计时 */
+        /* 底部倒计时：低调显示 */
         #timer {
             position: absolute;
             bottom: 50px;
@@ -98,14 +96,14 @@
             font-size: 40px;
             font-weight: bold;
             letter-spacing: 15px;
-            opacity: 0.3;
+            opacity: 0.2;
             font-variant-numeric: tabular-nums;
         }
     </style>
 </head>
 <body>
 
-    <div id="statusPanel">SYSTEM_ONLINE_</div>
+    <div id="statusPanel">BOOTING...</div>
 
     <div id="standby">SMILE PLEASE : READY_</div>
 
@@ -116,8 +114,153 @@
         <div id="timer">30</div>
     </div>
 
+    <!-- 引入 Supabase 库 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
         const SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6Ik"
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
+
+        let supabaseClient;
+        let isRunning = false;
+        let scrollAnimation = null;
+        let lastProcessedId = null; 
+
+        const panel = document.getElementById('statusPanel');
+        const standbyEl = document.getElementById('standby');
+        const contentEl = document.getElementById('displayContent');
+        const wrapperEl = document.getElementById('messageWrapper');
+        const textEl = document.getElementById('messageText');
+        const timerEl = document.getElementById('timer');
+
+        function initialize() {
+            if (typeof window.supabase === 'undefined') {
+                panel.innerText = "LIB_MISSING_RETRYING...";
+                setTimeout(initialize, 500);
+                return;
+            }
+            try {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                panel.innerText = "INIT_OK. TRYING REALTIME...";
+                startRealtime();
+            } catch (e) {
+                panel.innerText = "INIT_ERR:" + e.message;
+            }
+        }
+
+        // 尝试 WebSocket 实时订阅
+        function startRealtime() {
+            try {
+                const channel = supabaseClient
+                    .channel('exhibition-stream')
+                    .on(
+                        'postgres_changes', 
+                        { event: 'INSERT', schema: 'public', table: 'commands' }, 
+                        payload => {
+                            handleNewMessage(payload.new);
+                        }
+                    )
+                    .subscribe((status) => {
+                        panel.innerText = "REALTIME:" + status.toUpperCase();
+                        // 如果 Realtime 失败（如在 Canvas 中），则启动轮询作为备份
+                        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                            console.warn("Realtime failed, switching to Polling mode.");
+                            startPolling();
+                        }
+                    });
+            } catch (err) {
+                startPolling();
+            }
+        }
+
+        // 轮询模式备份 (应对受限环境)
+        function startPolling() {
+            if (window.pollingTimer) return;
+            panel.innerText = "MODE:POLLING_BACKUP";
+            
+            window.pollingTimer = setInterval(async () => {
+                if (isRunning) return; 
+
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('commands')
+                        .select('*')
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    if (error) throw error;
+                    if (data && data.length > 0) {
+                        handleNewMessage(data[0]);
+                    }
+                } catch (err) {
+                    panel.innerText = "POLL_ERR: " + err.message;
+                }
+            }, 1000);
+        }
+
+        // 统一的消息处理函数
+        function handleNewMessage(record) {
+            const status = record.status;
+            if ((status === 'Run' || status === 'RUN') && record.id !== lastProcessedId) {
+                // 如果是页面刚刷新获取的第一条，我们只记录 ID 暂不触发，防止旧指令误触发
+                if (lastProcessedId === null) {
+                    lastProcessedId = record.id;
+                    return;
+                }
+                
+                lastProcessedId = record.id;
+                runSequence(record.text || "...");
+            }
+        }
+
+        // 滚动字幕动画序列
+        function runSequence(msg) {
+            if (isRunning) return;
+            isRunning = true;
+
+            standbyEl.style.display = 'none';
+            contentEl.style.display = 'flex';
+            textEl.innerText = msg;
+
+            const textWidth = wrapperEl.offsetWidth;
+            const containerWidth = window.innerWidth;
+            
+            // 速度：约 180 像素每秒
+            const duration = Math.max(10, (textWidth + containerWidth) / 180); 
+
+            wrapperEl.style.transform = `translateX(${containerWidth}px)`;
+            
+            scrollAnimation = wrapperEl.animate([
+                { transform: `translateX(${containerWidth}px)` },
+                { transform: `translateX(${-textWidth}px)` }
+            ], {
+                duration: duration * 1000,
+                iterations: Infinity,
+                easing: 'linear'
+            });
+
+            // 30秒倒计时
+            let secondsLeft = 30;
+            timerEl.innerText = secondsLeft;
+            const countdown = setInterval(() => {
+                secondsLeft--;
+                timerEl.innerText = secondsLeft;
+                if (secondsLeft <= 0) {
+                    clearInterval(countdown);
+                    stopSequence();
+                }
+            }, 1000);
+        }
+
+        function stopSequence() {
+            isRunning = false;
+            if (scrollAnimation) scrollAnimation.cancel();
+            contentEl.style.display = 'none';
+            standbyEl.style.display = 'block';
+            textEl.innerText = "";
+        }
+
+        window.onload = initialize;
+    </script>
+</body>
+</html>
