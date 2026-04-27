@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMILE PLEASE - EXHIBITION DISPLAY</title>
+    <title>SMILE PLEASE - SCROLLING DISPLAY</title>
     <style>
-        /* 基础样式：彻底清除 iPad 默认间距 */
+        /* 基础样式 */
         * { 
             margin: 0; 
             padding: 0; 
@@ -25,198 +25,99 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: #000;
         }
 
-        /* 状态指示器：极小，不干扰展览，但方便调试 */
+        /* 状态指示器：保持极暗 */
         #statusPanel {
             position: absolute;
             top: 10px;
             left: 10px;
             font-size: 8px;
-            color: #1a1a1a; /* 极暗，近乎看不见 */
+            color: #1a1a1a;
             letter-spacing: 1px;
             z-index: 100;
-            pointer-events: none;
         }
 
-        /* 待机状态：呼吸感 */
+        /* 待机界面 */
         #standby {
             font-size: 14px;
             letter-spacing: 5px;
-            opacity: 0.5;
+            opacity: 0.4;
             animation: breathe 3s ease-in-out infinite;
             text-transform: uppercase;
         }
 
         @keyframes breathe {
-            0%, 100% { opacity: 0.1; transform: scale(0.98); }
-            50% { opacity: 0.6; transform: scale(1.02); }
+            0%, 100% { opacity: 0.1; }
+            50% { opacity: 0.5; }
         }
 
-        /* 运行容器 */
+        /* 滚动容器 */
         #displayContent {
             display: none;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
             flex-direction: column;
             justify-content: center;
-            align-items: center;
-            position: relative;
         }
 
-        /* 频闪动画 */
-        .active-strobe {
-            animation: strobeFrame 0.08s infinite;
+        /* 核心字幕样式 */
+        #messageWrapper {
+            display: inline-block;
+            white-space: nowrap;
+            position: absolute;
+            will-change: transform;
         }
 
-        @keyframes strobeFrame {
-            0%, 49% { background-color: #000; color: #fff; }
-            50%, 100% { background-color: #fff; color: #000; }
-        }
-
-        /* 核心文字：Glitch 效果 */
         #messageText {
-            font-size: 15vw;
+            font-size: 25vh; /* 调大字号，让滚动更有冲击力 */
             font-weight: 900;
-            text-align: center;
-            padding: 0 5%;
-            word-break: break-all;
-            line-height: 1;
-            z-index: 10;
-            /* 故障阴影 */
-            text-shadow: 4px 0 #ff0000, -4px 0 #00ffff;
-            animation: textGlitch 0.2s infinite;
+            padding-right: 100vw; /* 确保滚动完全消失 */
+            text-shadow: 3px 0 #ff0000, -3px 0 #00ffff; /* 保留色彩分离效果 */
+            animation: textFlicker 0.5s infinite;
         }
 
-        @keyframes textGlitch {
-            0% { transform: translate(0); }
-            20% { transform: translate(-3px, 2px); }
-            40% { transform: translate(-3px, -2px); }
-            60% { transform: translate(3px, 2px); }
-            80% { transform: translate(3px, -2px); }
-            100% { transform: translate(0); }
+        /* 滚动动画由 JS 动态创建，以适配文字长度 */
+
+        @keyframes textFlicker {
+            0% { opacity: 1; transform: skew(0deg); }
+            10% { opacity: 0.8; transform: skew(1deg); }
+            20% { opacity: 1; transform: skew(0deg); }
+            100% { opacity: 1; transform: skew(0deg); }
         }
 
-        /* 倒计时 */
+        /* 底部倒计时 */
         #timer {
             position: absolute;
-            bottom: 10%;
-            font-size: 6vw;
+            bottom: 50px;
+            width: 100%;
+            text-align: center;
+            font-size: 40px;
             font-weight: bold;
+            letter-spacing: 15px;
+            opacity: 0.3;
             font-variant-numeric: tabular-nums;
-            letter-spacing: 10px;
         }
     </style>
 </head>
 <body>
 
-    <!-- 调试面板 -->
-    <div id="statusPanel">INIT_OS...</div>
+    <div id="statusPanel">SYSTEM_ONLINE_</div>
 
-    <!-- 待机界面 -->
     <div id="standby">SMILE PLEASE : READY_</div>
 
-    <!-- 运行界面 -->
     <div id="displayContent">
-        <div id="messageText"></div>
+        <div id="messageWrapper">
+            <span id="messageText"></span>
+        </div>
         <div id="timer">30</div>
     </div>
 
-    <!-- 加载 Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // 1. 配置信息 (确保与硬件端完全一致)
         const SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
-
-        let supabaseClient;
-        let isRunning = false;
-
-        const panel = document.getElementById('statusPanel');
-        const standbyEl = document.getElementById('standby');
-        const contentEl = document.getElementById('displayContent');
-        const textEl = document.getElementById('messageText');
-        const timerEl = document.getElementById('timer');
-
-        // 2. 初始化逻辑：确保库已加载
-        function initialize() {
-            if (typeof window.supabase === 'undefined') {
-                panel.innerText = "LINK_ERR: RETRYING...";
-                setTimeout(initialize, 500);
-                return;
-            }
-
-            try {
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                panel.innerText = "CLIENT_OK: SYNCING...";
-                startRealtime();
-            } catch (e) {
-                panel.innerText = "FATAL: " + e.message;
-            }
-        }
-
-        // 3. 实时监听逻辑
-        function startRealtime() {
-            const channel = supabaseClient
-                .channel('installation_sync')
-                .on(
-                    'postgres_changes', 
-                    { event: 'INSERT', schema: 'public', table: 'commands' }, 
-                    (payload) => {
-                        console.log('New Command!', payload.new);
-                        const status = payload.new.status;
-                        // 兼容多种 Run 写法
-                        if (status === 'Run' || status === 'RUN') {
-                            runSequence(payload.new.text || "...");
-                        }
-                    }
-                )
-                .subscribe((status) => {
-                    panel.innerText = "ONLINE: " + status.toUpperCase();
-                });
-        }
-
-        // 4. 艺术展示序列 (30秒)
-        function runSequence(msg) {
-            if (isRunning) return;
-            isRunning = true;
-
-            // 进入频闪模式
-            standbyEl.style.display = 'none';
-            contentEl.style.display = 'flex';
-            document.body.classList.add('active-strobe');
-            textEl.innerText = msg;
-
-            let secondsLeft = 30;
-            timerEl.innerText = secondsLeft;
-
-            const countdown = setInterval(() => {
-                secondsLeft--;
-                timerEl.innerText = secondsLeft;
-                
-                if (secondsLeft <= 0) {
-                    clearInterval(countdown);
-                    stopSequence();
-                }
-            }, 1000);
-        }
-
-        // 5. 停止展示
-        function stopSequence() {
-            isRunning = false;
-            document.body.classList.remove('active-strobe');
-            contentEl.style.display = 'none';
-            standbyEl.style.display = 'block';
-            textEl.innerText = "";
-        }
-
-        // 自动启动
-        window.onload = initialize;
-
-        // 为 iPad 调试准备：点击屏幕可手动模拟测试一次
-        // window.onclick = () => runSequence("DEBUG_MODE");
-    </script>
-</body>
-</html>
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6Ik
