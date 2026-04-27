@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMILE PLEASE - STABLE DISPLAY</title>
+    <title>SMILE PLEASE - ART DISPLAY</title>
     <style>
-        /* 基础样式：黑白极简 */
+        /* 基础样式：极致纯黑 */
         * { 
             margin: 0; 
             padding: 0; 
@@ -27,29 +27,27 @@
             align-items: center;
         }
 
-        /* 状态指示器：极暗，仅供调试 */
+        /* 状态指示器：极暗调试，不干扰展览 */
         #statusPanel {
             position: absolute;
             top: 10px;
             left: 10px;
-            font-size: 10px;
-            color: #1a1a1a; 
-            letter-spacing: 1px;
+            font-size: 8px;
+            color: #111; 
             z-index: 100;
         }
 
-        /* 待机界面：呼吸灯效果 */
+        /* 待机状态 */
         #standby {
             font-size: 14px;
             letter-spacing: 5px;
-            opacity: 0.4;
-            animation: breathe 3s ease-in-out infinite;
-            text-transform: uppercase;
+            opacity: 0.3;
+            animation: breathe 4s ease-in-out infinite;
         }
 
         @keyframes breathe {
             0%, 100% { opacity: 0.1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.4; }
         }
 
         /* 运行容器 */
@@ -57,46 +55,94 @@
             display: none;
             width: 100vw;
             height: 100vh;
-            overflow: hidden;
-            white-space: nowrap;
             position: relative;
-            flex-direction: column;
-            justify-content: center;
+            overflow: hidden;
         }
 
-        /* 核心字幕：Glitch 艺术风格 */
+        /* 文字包装层 */
         #messageWrapper {
-            display: inline-block;
-            white-space: nowrap;
             position: absolute;
             will-change: transform;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
         }
 
+        /* 核心文字样式 */
         #messageText {
-            font-size: 25vh; 
             font-weight: 900;
-            padding-right: 100vw; 
-            text-shadow: 4px 0 #ff0000, -4px 0 #00ffff; 
-            animation: textFlicker 0.5s infinite;
+            text-transform: uppercase;
+            position: relative;
+            display: inline-block;
         }
 
-        @keyframes textFlicker {
-            0% { opacity: 1; transform: skew(0deg); }
-            10% { opacity: 0.8; transform: skew(0.5deg); }
-            20% { opacity: 1; transform: skew(0deg); }
-            100% { opacity: 1; transform: skew(0deg); }
+        /* --- 微微错层故障效果 (Subtle Glitch) --- */
+        /* 使用 clip-path 模拟信号错位断裂，不使用红蓝重影 */
+        .glitch-layer {
+            position: relative;
         }
 
-        /* 底部倒计时：低调显示 */
+        .glitch-layer::before,
+        .glitch-layer::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        .glitch-layer::before {
+            left: 2px;
+            text-shadow: -1px 0 #fff;
+            clip-path: inset(45% 0 44% 0);
+            animation: glitchTop 4s infinite linear alternate-reverse;
+        }
+
+        .glitch-layer::after {
+            left: -2px;
+            text-shadow: -1px 0 #888;
+            clip-path: inset(50% 0 30% 0);
+            animation: glitchBot 2s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitchTop {
+            0%, 100% { clip-path: inset(45% 0 44% 0); transform: translate(0); }
+            10% { clip-path: inset(10% 0 85% 0); transform: translate(4px); }
+            20% { clip-path: inset(80% 0 10% 0); transform: translate(-4px); }
+        }
+
+        @keyframes glitchBot {
+            0%, 100% { clip-path: inset(50% 0 30% 0); transform: translate(0); }
+            15% { transform: translate(-2px); }
+            25% { clip-path: inset(15% 0 75% 0); transform: translate(2px); }
+        }
+
+        /* 静态模式：全屏放大居中 */
+        .mode-static {
+            width: 100%;
+            font-size: 35vh; 
+            text-align: center;
+        }
+
+        /* 滚动模式：常规大小并运动 */
+        .mode-scroll {
+            font-size: 25vh;
+            white-space: nowrap;
+        }
+
+        /* 底部倒计时 */
         #timer {
             position: absolute;
-            bottom: 50px;
+            bottom: 30px;
             width: 100%;
             text-align: center;
-            font-size: 40px;
+            font-size: 30px;
             font-weight: bold;
-            letter-spacing: 15px;
-            opacity: 0.2;
+            opacity: 0.15;
+            letter-spacing: 10px;
             font-variant-numeric: tabular-nums;
         }
     </style>
@@ -104,17 +150,16 @@
 <body>
 
     <div id="statusPanel">BOOTING...</div>
-
-    <div id="standby">SMILE PLEASE : READY_</div>
+    <div id="standby">READY_</div>
 
     <div id="displayContent">
         <div id="messageWrapper">
-            <span id="messageText"></span>
+            <span id="messageText" class="glitch-layer"></span>
         </div>
         <div id="timer">30</div>
     </div>
 
-    <!-- 引入 Supabase 库 -->
+    <!-- 引入 Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
@@ -124,7 +169,7 @@
         let supabaseClient;
         let isRunning = false;
         let scrollAnimation = null;
-        let lastProcessedId = null; 
+        let lastProcessedId = null;
 
         const panel = document.getElementById('statusPanel');
         const standbyEl = document.getElementById('standby');
@@ -135,50 +180,21 @@
 
         function initialize() {
             if (typeof window.supabase === 'undefined') {
-                panel.innerText = "LIB_MISSING_RETRYING...";
                 setTimeout(initialize, 500);
                 return;
             }
             try {
                 supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                panel.innerText = "INIT_OK. TRYING REALTIME...";
-                startRealtime();
+                panel.innerText = "SYSTEM_SYNCED_POLLING";
+                startPolling(); // 使用轮询避开 WebSocket 安全错误
             } catch (e) {
                 panel.innerText = "INIT_ERR:" + e.message;
             }
         }
 
-        // 尝试 WebSocket 实时订阅
-        function startRealtime() {
-            try {
-                const channel = supabaseClient
-                    .channel('exhibition-stream')
-                    .on(
-                        'postgres_changes', 
-                        { event: 'INSERT', schema: 'public', table: 'commands' }, 
-                        payload => {
-                            handleNewMessage(payload.new);
-                        }
-                    )
-                    .subscribe((status) => {
-                        panel.innerText = "REALTIME:" + status.toUpperCase();
-                        // 如果 Realtime 失败（如在 Canvas 中），则启动轮询作为备份
-                        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                            console.warn("Realtime failed, switching to Polling mode.");
-                            startPolling();
-                        }
-                    });
-            } catch (err) {
-                startPolling();
-            }
-        }
-
-        // 轮询模式备份 (应对受限环境)
-        function startPolling() {
-            if (window.pollingTimer) return;
-            panel.innerText = "MODE:POLLING_BACKUP";
-            
-            window.pollingTimer = setInterval(async () => {
+        // 轮询逻辑：每秒抓取一次最新数据
+        async function startPolling() {
+            setInterval(async () => {
                 if (isRunning) return; 
 
                 try {
@@ -193,53 +209,64 @@
                         handleNewMessage(data[0]);
                     }
                 } catch (err) {
-                    panel.innerText = "POLL_ERR: " + err.message;
+                    console.error("Polling error:", err.message);
                 }
             }, 1000);
         }
 
-        // 统一的消息处理函数
         function handleNewMessage(record) {
-            const status = record.status;
-            if ((status === 'Run' || status === 'RUN') && record.id !== lastProcessedId) {
-                // 如果是页面刚刷新获取的第一条，我们只记录 ID 暂不触发，防止旧指令误触发
-                if (lastProcessedId === null) {
-                    lastProcessedId = record.id;
-                    return;
+            if ((record.status === 'Run' || record.status === 'RUN') && record.id !== lastProcessedId) {
+                // 首次加载记录 ID 避免重复触发
+                if (lastProcessedId === null) { 
+                    lastProcessedId = record.id; 
+                    return; 
                 }
-                
                 lastProcessedId = record.id;
                 runSequence(record.text || "...");
             }
         }
 
-        // 滚动字幕动画序列
         function runSequence(msg) {
             if (isRunning) return;
             isRunning = true;
 
+            // 1. 初始化显示
             standbyEl.style.display = 'none';
-            contentEl.style.display = 'flex';
+            contentEl.style.display = 'block';
             textEl.innerText = msg;
+            textEl.setAttribute('data-text', msg); 
 
-            const textWidth = wrapperEl.offsetWidth;
-            const containerWidth = window.innerWidth;
+            const charCount = msg.length;
             
-            // 速度：约 180 像素每秒
-            const duration = Math.max(10, (textWidth + containerWidth) / 180); 
+            // 2. 根据字数决定模式
+            if (charCount <= 5) {
+                // --- 静态全屏模式 ---
+                wrapperEl.style.width = "100%";
+                wrapperEl.style.left = "0";
+                wrapperEl.classList.remove('mode-scroll');
+                wrapperEl.classList.add('mode-static');
+                wrapperEl.style.transform = "none";
+                if (scrollAnimation) scrollAnimation.cancel();
+            } else {
+                // --- 滚动模式 ---
+                wrapperEl.classList.remove('mode-static');
+                wrapperEl.classList.add('mode-scroll');
+                
+                const textWidth = wrapperEl.offsetWidth;
+                const containerWidth = window.innerWidth;
+                const duration = Math.max(10, (textWidth + containerWidth) / 160); 
 
-            wrapperEl.style.transform = `translateX(${containerWidth}px)`;
-            
-            scrollAnimation = wrapperEl.animate([
-                { transform: `translateX(${containerWidth}px)` },
-                { transform: `translateX(${-textWidth}px)` }
-            ], {
-                duration: duration * 1000,
-                iterations: Infinity,
-                easing: 'linear'
-            });
+                scrollAnimation = wrapperEl.animate([
+                    { transform: `translateX(${containerWidth}px)` },
+                    { transform: `translateX(${-textWidth}px)` }
+                ], {
+                    duration: duration * 1000,
+                    iterations: Infinity,
+                    easing: 'linear'
+                });
+            }
 
-            // 30秒倒计时
+            // 3. 30秒倒计时
             let secondsLeft = 30;
             timerEl.innerText = secondsLeft;
             const countdown = setInterval(() => {

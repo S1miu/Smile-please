@@ -1,6 +1,7 @@
 /*
- * SMILE PLEASE - ESP32-S3 Motor Controller (Fixed Version)
- * 功能：修正了 URL 拼接错误和函数作用域错误
+ * SMILE PLEASE - ESP32-S3 Motor Controller (Low Latency Version)
+ * 功能：通过 WiFi 高频轮询 Supabase，控制步进电机运行 30 秒
+ * 优化：大幅降低轮询延迟，提升响应速度
  */
 
 #include <WiFi.h>
@@ -9,49 +10,45 @@
 #include <ArduinoJson.h>
 
 // ========== 配置参数 ==========
-const char* WIFI_SSID = "smileplease";        
-const char* WIFI_PASSWORD = "simiaobieku";    
+// WiFi设置
+const char* WIFI_SSID = "smileplease";        // 你的WiFi名称
+const char* WIFI_PASSWORD = "simiaobieku";    // 你的WiFi密码
 
-// 修正：SUPABASE_URL 只保留主域名
-const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co"; 
-const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk"; 
+// Supabase配置
+const char* SUPABASE_URL = "https://ghkzhbfqcwzkgrmxwoww.supabase.co/rest/v1/commands?select=*&limit=1";
+const char* SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3poYmZxY3d6a2dybXh3b3d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2NzEwNjksImV4cCI6MjA5MjI0NzA2OX0.YqEYNC5h_5RA6wOAEsQKBTnwAzbsFsptN82PEAWIJbk";
 
-const int MOTOR_PIN_1 = 12;  
-const int MOTOR_PIN_2 = 14;  
-const int LED_PIN = 2;
+// GPIO引脚
+const int MOTOR_PIN_1 = 12;  // 脉冲引脚 1
+const int MOTOR_PIN_2 = 14;  // 脉冲引脚 2
 
-const int MOTOR_DURATION = 30000;  
-const int PULSE_FREQUENCY = 200;   
-const int POLL_INTERVAL = 2000;    
+// 运行参数
+const int MOTOR_DURATION = 30000;  // 电机运行时长（30秒）
+const int PULSE_FREQUENCY = 200;   // 脉冲频率（Hz）
+const int POLL_INTERVAL = 500;     // 优化：轮询间隔降低至 500ms，反应更灵敏
 
+// 状态变量
 bool isRunning = false;
 unsigned long motorStartTime = 0;
 unsigned long lastPollTime = 0;
 String lastProcessedId = "";
 
-// 函数声明，确保编译器能找到它们
-void connectWiFi();
-void checkForNewMessage();
-void startMotor();
-void stopMotor();
-void generatePulse();
-
+// ========== 初始化设置 ==========
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
   
-  Serial.println("\n========== SMILE PLEASE Motor Controller ==========");
+  Serial.println("\n========== SMILE PLEASE: LOW LATENCY MODE ==========");
   
   pinMode(MOTOR_PIN_1, OUTPUT);
   pinMode(MOTOR_PIN_2, OUTPUT);
-  pinMode(LED_PIN, OUTPUT);
-  
   digitalWrite(MOTOR_PIN_1, LOW);
   digitalWrite(MOTOR_PIN_2, LOW);
   
   connectWiFi();
 }
 
+// ========== 主循环 ==========
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     connectWiFi();
@@ -72,10 +69,9 @@ void loop() {
   }
 }
 
+// ========== WiFi连接 ==========
 void connectWiFi() {
-  Serial.print("Connecting to WiFi: ");
-  Serial.println(WIFI_SSID);
-  
+  Serial.print("Connecting to WiFi...");
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
@@ -87,22 +83,23 @@ void connectWiFi() {
   }
   
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected!");
-    digitalWrite(LED_PIN, HIGH); // 联网成功灯亮
+    Serial.println("\nWiFi connected! Status: Ready.");
   } else {
-    Serial.println("\nWiFi connection failed! Restarting...");
-    delay(2000);
+    Serial.println("\nConnection failed. Rebooting...");
+    delay(1000);
     ESP.restart();
   }
 }
 
+// ========== 检查新消息 ==========
 void checkForNewMessage() {
   WiFiClientSecure client;
-  client.setInsecure(); // 跳过证书验证
+  client.setInsecure(); // 跳过 SSL 验证提高速度
   
   HTTPClient http;
-  // 修正后的 URL 拼接
-  String url = String(SUPABASE_URL) + "/rest/v1/commands?select=*&order=created_at.desc&limit=1";
+  
+  // 构建带有 API Key 的 URL
+  String url = String(SUPABASE_URL) + "&apikey=" + String(SUPABASE_ANON_KEY);
 
   http.begin(client, url);
   http.addHeader("apikey", SUPABASE_ANON_KEY);
@@ -119,38 +116,36 @@ void checkForNewMessage() {
       JsonObject message = doc[0];
       String messageId = message["id"].as<String>();
       String status = message["status"].as<String>();
-      String textContent = message["text"].as<String>();
+      String content = message["text"].as<String>();
       
-      // 兼容 Run 和 RUN，同时对比 ID
+      // 检查是否为新指令
       if ((status == "Run" || status == "RUN") && messageId != lastProcessedId) {
-        Serial.println("\n--- NEW COMMAND RECEIVED ---");
-        Serial.print("Text: "); Serial.println(textContent);
+        Serial.println("\n[SYNC] TRIGGER RECEIVED: " + content);
         lastProcessedId = messageId;
         startMotor();
-      } else {
-        Serial.print("."); // 心跳监测
       }
+    } else {
+      Serial.print("."); // 心跳监测
     }
-  } else {
-    Serial.print("HTTP Error: ");
-    Serial.println(httpCode);
   }
   http.end();
 }
 
+// ========== 启动电机 ==========
 void startMotor() {
   Serial.println(">>> MOTOR STARTING <<<");
   isRunning = true;
   motorStartTime = millis();
-}
-
-void stopMotor() {
-  Serial.println(">>> MOTOR STOPPED <<<");
-  isRunning = false;
+  
+  // 移除之前的 10ms 延迟，改为直接触发
+  digitalWrite(MOTOR_PIN_1, HIGH);
+  digitalWrite(MOTOR_PIN_2, HIGH);
+  delayMicroseconds(100); 
   digitalWrite(MOTOR_PIN_1, LOW);
   digitalWrite(MOTOR_PIN_2, LOW);
 }
 
+// ========== 生成脉冲信号 ==========
 void generatePulse() {
   int pulsePeriod = 1000000 / PULSE_FREQUENCY;
   int halfPeriod = pulsePeriod / 2;
@@ -158,7 +153,16 @@ void generatePulse() {
   digitalWrite(MOTOR_PIN_1, HIGH);
   digitalWrite(MOTOR_PIN_2, HIGH);
   delayMicroseconds(halfPeriod);
+  
   digitalWrite(MOTOR_PIN_1, LOW);
   digitalWrite(MOTOR_PIN_2, LOW);
   delayMicroseconds(halfPeriod);
+}
+
+// ========== 停止电机 ==========
+void stopMotor() {
+  Serial.println(">>> MOTOR STOPPED <<<");
+  isRunning = false;
+  digitalWrite(MOTOR_PIN_1, LOW);
+  digitalWrite(MOTOR_PIN_2, LOW);
 }
